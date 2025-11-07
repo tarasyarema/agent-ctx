@@ -12,7 +12,10 @@ dependencies = [
     "httpx>=0.28.1",
     "langchain>=1.0.3",
     "langchain-openai>=1.0.2",
+    "matplotlib>=3.10.7",
+    "pandas>=2.3.3",
     "pydantic>=2.12.4",
     "python-dotenv>=1.2.1",
+    "seaborn>=0.13.2",
     "sqlglot[rs]>=27.29.0",
 ]

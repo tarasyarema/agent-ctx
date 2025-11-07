@@ -1,4 +1,5 @@
-from pydantic import BaseModel
+from typing import List
+from pydantic import BaseModel, Field
 
 
 MODELS = {
@@ -14,11 +15,13 @@ MODELS = {
 
 class Reference(BaseModel):
     text: str
-    link: str | None = None
-    filename: str | None = None
-    sql_query: str | None = None
+    link: str
+    filename: str
+    sql_query: str
 
 
 class FinalResponse(BaseModel):
     text: str
-    references: list[Reference] = []
+    references: List[Reference] = Field(
+        description="List of references used to generate the response"
+    )

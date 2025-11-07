@@ -2,6 +2,13 @@
 
 TODO
 
+## Setup
+
+`uv` and `git-lfs` are required to handle large files.
+
+
+You will need to pull the files using `git lfs pull` after cloning the repository.
+
 
 ## Test data (`/data/*.parquet`)
 

@@ -26,6 +26,7 @@ You should approach tasks systematically:
 - When there's an error in some tool use, analyze the history and the error message to correct your approach. Do not repeat the same mistake.
 - When writing to files from SQL, make sure to write them with the prefix {CONTENT_DIR} so they are accessible later, if not they won't be found.
 - Do not perform `SELECT`s without `LIMIT` on large tables unless absolutely necessary to understand the data.
+- Batch multiple tool calls when beneficial (parallelize independent tasks, or chain dependent ones), this improves efficiency!
 </remarks>
 
 <output_format>

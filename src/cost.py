@@ -50,6 +50,38 @@ class UsagePrice(BaseModel):
     total_cost: float  # in USD
 
 
+def sum_prices(prices: list[UsagePrice]) -> UsagePrice:
+    total_input_cost = sum(p.input_cost for p in prices)
+    total_input_cache_read_cost = sum(p.input_cache_read_cost or 0.0 for p in prices)
+    total_input_cache_write_cost = sum(p.input_cache_write_cost or 0.0 for p in prices)
+    total_input_cache_total_cost = sum(p.input_cache_total_cost or 0.0 for p in prices)
+    total_output_cost = sum(p.output_cost for p in prices)
+
+    total_input_total_cost = sum(p.input_total_cost for p in prices)
+    total_output_total_cost = sum(p.output_total_cost for p in prices)
+    total_total_cost = sum(p.total_cost for p in prices)
+
+    return UsagePrice(
+        input_cost=total_input_cost,
+        input_cache_read_cost=total_input_cache_read_cost,
+        input_cache_write_cost=total_input_cache_write_cost,
+        input_cache_total_cost=total_input_cache_total_cost,
+        output_cost=total_output_cost,
+        output_total_cost=total_output_total_cost,
+        input_total_cost=total_input_total_cost,
+        total_cost=total_total_cost,
+    )
+
+def sum_tokens(usage_list: list[UsageMetadata]) -> UsageMetadata:
+    total_input_tokens = sum(u.get("input_tokens", 0) for u in usage_list)
+    total_output_tokens = sum(u.get("output_tokens", 0) for u in usage_list)
+
+    return {
+        "input_tokens": total_input_tokens,
+        "output_tokens": total_output_tokens,
+        "total_tokens": total_input_tokens + total_output_tokens,
+    }
+
 async def _read_model_prices() -> ModelPrices:
     async with aio_open(PRICING_PATH, "r") as f:
         content = await f.read()

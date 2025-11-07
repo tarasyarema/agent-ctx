@@ -1,0 +1,4 @@
+agent_type,total_messages_mean,total_messages_std,total_time_seconds_mean,total_time_seconds_std,total_cost_mean,total_cost_std,total_tokens_mean,total_tokens_std,avg_tokens_per_step_mean,avg_tokens_per_step_std,avg_time_per_step_mean,avg_time_per_step_std,cost_per_step_mean,cost_per_step_std,is_success_sum,is_success_count,accuracy_score_mean,accuracy_score_std,success_rate
+intent,15.6,2.7019,171.5521,43.6354,0.2273,0.169,127749.2,50335.1939,8117.0007,2660.9454,11.0732,2.2611,0.014,0.01,5,5,0.7667,0.19,100.0
+simple-raw,61.0,26.096,102.0067,17.5871,0.452,0.3722,212992.2,58263.9493,3950.9018,1855.0987,1.9572,0.8417,0.01,0.0091,4,5,0.6,0.4183,80.0
+simple-summarization,56.2,8.8431,189.4087,64.0915,0.4066,0.3264,158134.2,43738.3203,2955.4639,1159.2978,3.5656,1.566,0.008,0.0067,2,5,0.2333,0.3651,40.0

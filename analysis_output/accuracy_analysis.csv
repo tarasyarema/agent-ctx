@@ -1,0 +1,67 @@
+run_id,agent_type,field,true_value,predicted_value,is_correct,error,percentage_error,proximity_score
+5e5ae09a-0d3e-4e06-9f77-a1b5c9f0472d,intent,best_revenue_zone,Zone 132,Zone 132,True,,,1.0
+5e5ae09a-0d3e-4e06-9f77-a1b5c9f0472d,intent,best_revenue_hour,17,17,True,0.0,0.0,1.0
+5e5ae09a-0d3e-4e06-9f77-a1b5c9f0472d,intent,avg_revenue_per_trip,19.94,19.93660587793135,True,-0.0033941220686521945,0.01702167536936908,0.9998297832463063
+5e5ae09a-0d3e-4e06-9f77-a1b5c9f0472d,intent,optimal_distance_bracket,10+mi,10+mi,True,,,1.0
+5e5ae09a-0d3e-4e06-9f77-a1b5c9f0472d,intent,trips_below_min_fare,2176876,2176876,True,0.0,0.0,1.0
+5e5ae09a-0d3e-4e06-9f77-a1b5c9f0472d,intent,trips_above_max_distance,2221,2221,True,0.0,0.0,1.0
+d63100c7-270e-4152-b25d-608a0281f69d,simple-raw,best_revenue_zone,Zone 132,Zone 132,True,,,1.0
+d63100c7-270e-4152-b25d-608a0281f69d,simple-raw,best_revenue_hour,17,18,False,1.0,5.88235294117647,0.8823529411764706
+d63100c7-270e-4152-b25d-608a0281f69d,simple-raw,avg_revenue_per_trip,19.94,18.34,False,-1.6000000000000014,8.024072216649957,0.8395185556670008
+d63100c7-270e-4152-b25d-608a0281f69d,simple-raw,optimal_distance_bracket,10+mi,10+mi,True,,,1.0
+d63100c7-270e-4152-b25d-608a0281f69d,simple-raw,trips_below_min_fare,2176876,148282,False,-2028594.0,93.18831205819717,0.0
+d63100c7-270e-4152-b25d-608a0281f69d,simple-raw,trips_above_max_distance,2221,162,False,-2059.0,92.70598829356146,0.0
+d63100c7-270e-4152-b25d-608a0281f69d,simple-summarization,best_revenue_zone,Zone 132,Zone 132,True,,,1.0
+d63100c7-270e-4152-b25d-608a0281f69d,simple-summarization,best_revenue_hour,17,17,True,0.0,0.0,1.0
+d63100c7-270e-4152-b25d-608a0281f69d,simple-summarization,avg_revenue_per_trip,19.94,27.14,False,7.199999999999999,36.10832497492476,0.2778335005015048
+d63100c7-270e-4152-b25d-608a0281f69d,simple-summarization,optimal_distance_bracket,10+mi,0-2mi,False,,,0.0
+d63100c7-270e-4152-b25d-608a0281f69d,simple-summarization,trips_below_min_fare,2176876,148282,False,-2028594.0,93.18831205819717,0.0
+d63100c7-270e-4152-b25d-608a0281f69d,simple-summarization,trips_above_max_distance,2221,162,False,-2059.0,92.70598829356146,0.0
+d63100c7-270e-4152-b25d-608a0281f69d,intent,best_revenue_zone,Zone 132,Zone 132,True,,,1.0
+d63100c7-270e-4152-b25d-608a0281f69d,intent,best_revenue_hour,17,17,True,0.0,0.0,1.0
+d63100c7-270e-4152-b25d-608a0281f69d,intent,avg_revenue_per_trip,19.94,19.936605877932518,True,-0.0033941220674833517,0.01702167536350728,0.999829783246365
+d63100c7-270e-4152-b25d-608a0281f69d,intent,optimal_distance_bracket,10+mi,2-5mi,False,,,0.0
+d63100c7-270e-4152-b25d-608a0281f69d,intent,trips_below_min_fare,2176876,2176876,True,0.0,0.0,1.0
+d63100c7-270e-4152-b25d-608a0281f69d,intent,trips_above_max_distance,2221,2221,True,0.0,0.0,1.0
+a666adde-379e-4c64-9406-6d49142c287f,simple-raw,best_revenue_zone,Zone 132,Zone 132,True,,,1.0
+a666adde-379e-4c64-9406-6d49142c287f,simple-raw,best_revenue_hour,17,17,True,0.0,0.0,1.0
+a666adde-379e-4c64-9406-6d49142c287f,simple-raw,avg_revenue_per_trip,19.94,28.66,False,8.719999999999999,43.731193580742215,0.12537612838515566
+a666adde-379e-4c64-9406-6d49142c287f,simple-raw,optimal_distance_bracket,10+mi,10+mi,True,,,1.0
+a666adde-379e-4c64-9406-6d49142c287f,simple-raw,trips_below_min_fare,2176876,2176876,True,0.0,0.0,1.0
+a666adde-379e-4c64-9406-6d49142c287f,simple-raw,trips_above_max_distance,2221,2221,True,0.0,0.0,1.0
+a666adde-379e-4c64-9406-6d49142c287f,intent,best_revenue_zone,Zone 132,JFK Airport,False,,,0.0
+a666adde-379e-4c64-9406-6d49142c287f,intent,best_revenue_hour,17,18,False,1.0,5.88235294117647,0.8823529411764706
+a666adde-379e-4c64-9406-6d49142c287f,intent,avg_revenue_per_trip,19.94,28.66,False,8.719999999999999,43.731193580742215,0.12537612838515566
+a666adde-379e-4c64-9406-6d49142c287f,intent,optimal_distance_bracket,10+mi,10+mi,True,,,1.0
+a666adde-379e-4c64-9406-6d49142c287f,intent,trips_below_min_fare,2176876,2176876,True,0.0,0.0,1.0
+a666adde-379e-4c64-9406-6d49142c287f,intent,trips_above_max_distance,2221,2221,True,0.0,0.0,1.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,simple-raw,best_revenue_zone,Zone 132,Zone 132,True,,,1.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,simple-raw,best_revenue_hour,17,17,True,0.0,0.0,1.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,simple-raw,avg_revenue_per_trip,19.94,19.94,True,0.0,0.0,1.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,simple-raw,optimal_distance_bracket,10+mi,10+mi,True,,,1.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,simple-raw,trips_below_min_fare,2176876,2176876,True,0.0,0.0,1.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,simple-raw,trips_above_max_distance,2221,2221,True,0.0,0.0,1.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,simple-summarization,best_revenue_zone,Zone 132,Zone 132,True,,,1.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,simple-summarization,best_revenue_hour,17,17,True,0.0,0.0,1.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,simple-summarization,avg_revenue_per_trip,19.94,28.66,False,8.719999999999999,43.731193580742215,0.12537612838515566
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,simple-summarization,optimal_distance_bracket,10+mi,10+mi,True,,,1.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,simple-summarization,trips_below_min_fare,2176876,2176876,True,0.0,0.0,1.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,simple-summarization,trips_above_max_distance,2221,2221,True,0.0,0.0,1.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,intent,best_revenue_zone,Zone 132,Zone 132,True,,,1.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,intent,best_revenue_hour,17,17,True,0.0,0.0,1.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,intent,avg_revenue_per_trip,19.94,27.85,False,7.91,39.66900702106319,0.2066198595787363
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,intent,optimal_distance_bracket,10+mi,10+mi,True,,,1.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,intent,trips_below_min_fare,2176876,973562,False,-1203314.0,55.27710351898776,0.0
+67ebfd6a-ecf1-4b7b-bb00-500fa66abf56,intent,trips_above_max_distance,2221,2221,True,0.0,0.0,1.0
+aba03497-964a-4ea7-9d96-1a4ba9220646,simple-raw,best_revenue_zone,Zone 132,Zone 132,True,,,1.0
+aba03497-964a-4ea7-9d96-1a4ba9220646,simple-raw,best_revenue_hour,17,17,True,0.0,0.0,1.0
+aba03497-964a-4ea7-9d96-1a4ba9220646,simple-raw,avg_revenue_per_trip,19.94,28.66,False,8.719999999999999,43.731193580742215,0.12537612838515566
+aba03497-964a-4ea7-9d96-1a4ba9220646,simple-raw,optimal_distance_bracket,10+mi,10+mi,True,,,1.0
+aba03497-964a-4ea7-9d96-1a4ba9220646,simple-raw,trips_below_min_fare,2176876,2176876,True,0.0,0.0,1.0
+aba03497-964a-4ea7-9d96-1a4ba9220646,simple-raw,trips_above_max_distance,2221,2221,True,0.0,0.0,1.0
+aba03497-964a-4ea7-9d96-1a4ba9220646,intent,best_revenue_zone,Zone 132,Zone 132,True,,,1.0
+aba03497-964a-4ea7-9d96-1a4ba9220646,intent,best_revenue_hour,17,17,True,0.0,0.0,1.0
+aba03497-964a-4ea7-9d96-1a4ba9220646,intent,avg_revenue_per_trip,19.94,28.66,False,8.719999999999999,43.731193580742215,0.12537612838515566
+aba03497-964a-4ea7-9d96-1a4ba9220646,intent,optimal_distance_bracket,10+mi,10+mi,True,,,1.0
+aba03497-964a-4ea7-9d96-1a4ba9220646,intent,trips_below_min_fare,2176876,2176876,True,0.0,0.0,1.0
+aba03497-964a-4ea7-9d96-1a4ba9220646,intent,trips_above_max_distance,2221,2221,True,0.0,0.0,1.0

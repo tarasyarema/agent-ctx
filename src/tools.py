@@ -1,4 +1,3 @@
-from pydantic import BaseModel
 import src.config  # noqa: F401
 
 import os
@@ -6,6 +5,7 @@ import uuid
 
 
 import httpx
+from pydantic import BaseModel
 from bs4 import BeautifulSoup
 import duckdb
 from langchain_core.language_models import BaseChatModel
@@ -30,6 +30,7 @@ CONTENT_DIR = os.path.join(
 
 
 RUN_ID = str(uuid.uuid4())
+
 print(f"Tools module initialized with RUN_ID: {RUN_ID}")
 
 class ListFilesSchema(BaseModel):
@@ -66,7 +67,7 @@ def list_files(filter: str = "") -> str:
         return text
 
     except FileNotFoundError:
-        return f"Directory '{DATA_DIR}' does not exist."
+        return f"Error: Directory '{DATA_DIR}' does not exist."
 
 class WriteFileSchema(BaseModel):
     """Schema for writing a file tool."""
@@ -85,7 +86,7 @@ def write_file(filename: str, content: str) -> str:
         file_path = os.path.join(CONTENT_DIR, filename)
 
         if os.path.exists(file_path):
-            return f"File '{filename}' already exists. Aborting to prevent overwrite."
+            return f"Error: File '{filename}' already exists. Aborting to prevent overwrite."
 
         with open(file_path, "w") as f:
             f.write(content)
@@ -93,7 +94,7 @@ def write_file(filename: str, content: str) -> str:
         return f"File '{filename}' written successfully."
 
     except Exception as e:
-        return f"Error writing file '{filename}': {str(e)}"
+        return f"Error: Could not write file '{filename}': {str(e)}"
 
 class ReadFileSchema(BaseModel):
     """Schema for reading a file tool."""
@@ -119,14 +120,14 @@ def read_file(filename: str) -> str:
         return content
 
     except Exception as e:
-        return f"Error reading file '{filename}': {str(e)}"
+        return f"Error: Could not read file '{filename}': {str(e)}"
 
 class UpdateFileSchema(BaseModel):
     """Schema for updating a file tool."""
     filename: str
     old_str: str
     new_str: str
-    replace_all: bool = True
+    replace_all: bool
 
 @tool(
     "update_file",
@@ -157,7 +158,7 @@ def update_file(filename: str, old_str: str, new_str: str, replace_all: bool = T
         return f"File '{filename}' updated successfully, replaced {'all occurrences' if replace_all else 'first occurrence'}"
 
     except Exception as e:
-        return f"Error updating file '{filename}': {str(e)}"
+        return f"Error: Could not update file '{filename}': {str(e)}"
 
 class ValidateSQLSchema(BaseModel):
     """Schema for validating SQL tool."""
@@ -174,7 +175,7 @@ def validate_sql(sql: str) -> str:
         return "Valid DuckDB SQL"
 
     except sqlglot.ParseError as e:
-        return f"Invalid SQL, here's the error:\n{str(e)}"
+        return f"Error: Invalid SQL, here's the error:\n{str(e)}"
 
 class ExecuteSQLSchema(BaseModel):
     """Schema for executing SQL tool."""
@@ -200,7 +201,10 @@ def execute_sql(sql: str) -> str:
         con.install_extension("httpfs")
         con.load_extension("httpfs")
 
-        # print(f"Executing SQL:\n{sql}")
+        # Escape newlines in the SQL in case double \\n are passed
+        sql = sql.replace("\\n", "\n")
+
+        print(f"Executing SQL:\n{sql}")
 
         result = con.execute(sql).fetchall()
         con.close()
@@ -214,18 +218,18 @@ def execute_sql(sql: str) -> str:
 
     except duckdb.Error as e:
         if "No files found" in str(e):
-            return "Error executing SQL, one or more queried fiels were not found! Please verify the file paths used (`FROM` clauses in the query) to ensure they are queriable using the `list_files` tool to check available files."
+            return "Error: Could not execute SQL, one or more queried fiels were not found! Please verify the file paths used (`FROM` clauses in the query) to ensure they are queriable using the `list_files` tool to check available files."
 
-        return f"Error executing SQL\n{str(e)}\nPlease, validate the SQL syntax before executing, check table and column names, and ensure the SQL is compatible with DuckDB."
+        return f"Error: Could not execute SQL\n{str(e)}\nPlease, validate the SQL syntax before executing, check table and column names, and ensure the SQL is compatible with DuckDB."
 
 
 class ReadDocsSchema(BaseModel):
     """Schema for reading DuckDB documentation tool."""
-    path: str | None = None
+    path: str
 
 @tool(
     "read_docs",
-    description="""Perform a web request to read DuckDB documentation pages. Optional path parameter can be provided to specify a specific page to read. If no path is provided, the "/sitemap" page will be read.""",
+    description="""Perform a web request to read DuckDB documentation pages. Optional path parameter can be provided to specify a specific page to read. If no path or empty is provided, the "/sitemap" page will be read.""",
     args_schema=ReadDocsSchema
 )
 async def read_docs(

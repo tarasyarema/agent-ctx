@@ -21,7 +21,7 @@ async def simple(
     user_prompt: str = USER_PROMPT,
     use_summarization: bool = False, 
     model_name: str | None = None
-) -> None:
+):
     print(f"Starting simple agent with summarization={use_summarization}")
 
     _model_name = model_name or MODELS["ant-haiku"]
@@ -59,60 +59,64 @@ async def simple(
     start = datetime.now(timezone.utc)
     _start_time = start
 
-    async for chunk in agent.astream(
-        {
-            "messages": [
-                HumanMessage(
-                    content=user_prompt
-                )
-            ]
-        },
-        stream_mode="values",
-        config={
-            "recursion_limit": 150,
-            "callbacks": [callback]
-        }
-    ):
-        msg_count += 1
+    try:
+        async for chunk in agent.astream(
+            {
+                "messages": [
+                    HumanMessage(
+                        content=user_prompt
+                    )
+                ]
+            },
+            stream_mode="values",
+            config={
+                "recursion_limit": 100,
+                "callbacks": [callback]
+            }
+        ):
+            msg_count += 1
 
-        # Each chunk contains the full state at that point
-        latest_message = chunk["messages"][-1]
+            # Each chunk contains the full state at that point
+            latest_message = chunk["messages"][-1]
 
-        _now = datetime.now(timezone.utc)
-        elapsed = _now - start
+            _now = datetime.now(timezone.utc)
+            elapsed = _now - start
 
-        latencies.append({
-            "iteration": len(latencies) + 1,
-            "start": start.isoformat(),
-            "end": _now.isoformat(),
-            "elapsed_seconds": elapsed.total_seconds()
-        })
+            latencies.append({
+                "iteration": len(latencies) + 1,
+                "start": start.isoformat(),
+                "end": _now.isoformat(),
+                "elapsed_seconds": elapsed.total_seconds()
+            })
 
-        start = _now
+            start = _now
 
-        try:
-            estimated_tokens = count_tokens_approximately(chunk["messages"])
+            try:
+                estimated_tokens = count_tokens_approximately(chunk["messages"])
 
-        except Exception as e:
-            print(f"Error estimating tokens: {e}")
-            estimated_tokens = -1
+            except Exception as e:
+                print(f"Error estimating tokens: {e}")
+                estimated_tokens = -1
 
-        tokens_used.append(estimated_tokens)
+            tokens_used.append(estimated_tokens)
 
-        print(f"Iteration {msg_count} with {len(chunk['messages'])} took {elapsed.total_seconds():.2f} seconds with ~{estimated_tokens} tokens")
+            print(f"Iteration {msg_count} with {len(chunk['messages'])} took {elapsed.total_seconds():.2f} seconds with ~{estimated_tokens} tokens")
 
-        if "structured_response" in chunk:
-            print("\nStructured Response Update:")
-            output = chunk["structured_response"]
+            if "structured_response" in chunk:
+                print("\nStructured Response Update:")
+                output = chunk["structured_response"]
 
-        if latest_message.content:
-            # print(f"Agent:\n{latest_message.content[:200]}...\n")
+            if latest_message.content:
+                print(f"Agent:\n{latest_message.content}")
 
-            if _model_name in callback.usage_metadata:
-                meta_usages.append(callback.usage_metadata[_model_name])
+                if _model_name in callback.usage_metadata:
+                    meta_usages.append(callback.usage_metadata[_model_name])
 
-        elif hasattr(latest_message, "tool_calls") and latest_message.tool_calls:
-            print(f"Calling tools: {[tc['name'] for tc in latest_message.tool_calls]}")
+            elif hasattr(latest_message, "tool_calls") and latest_message.tool_calls:
+                print(f"Calling tools: {[tc['name'] for tc in latest_message.tool_calls]}")
+
+    except Exception as e:
+        print(f"Error during agent execution: {e}")
 
     if output:
         print("\nFinal Response:")
@@ -140,15 +144,17 @@ async def simple(
         "summarization_used": use_summarization,
         "agent_type": "simple",
         "latencies": latencies,
-        "start_time": _start_time,
-        "end_time": datetime.now(timezone.utc),
+        "start_time": _start_time.isoformat(),
+        "end_time": datetime.now(timezone.utc).isoformat(),
         "total_time_seconds": sum(float(l["elapsed_seconds"]) for l in latencies),
         "tokens_used_approx": tokens_used,
     }
 
-    _final_path = f"outputs/{_model_name}-simple-{'summarization' if use_summarization else 'raw'}-{RUN_ID}.json"
+    _model_name_norm = _model_name.replace("/", "-").replace(" ", "_")
+    _final_path = f"outputs/{RUN_ID}/{_model_name_norm}-simple-{'summarization' if use_summarization else 'raw'}.json"
 
     async with aiofiles.open(_final_path, "w") as f:
         await f.write(dumps(_data, indent=2))
 
     print(f"Wrote full run data to {_final_path}")
+    return _final_path
