@@ -77,24 +77,6 @@ run_id,agent_type,field,true_value,predicted_value,is_correct,error,percentage_e
 20251107T091039,intent,optimal_distance_bracket,10+mi,10+mi,True,,,1.0
 20251107T091039,intent,trips_below_min_fare,2176876,148282,False,-2028594.0,93.18831205819717,0.0
 20251107T091039,intent,trips_above_max_distance,2221,162,False,-2059.0,92.70598829356146,0.0
-20251107T024315,simple-raw,best_revenue_zone,Zone 132,Zone 132,True,,,1.0
-20251107T024315,simple-raw,best_revenue_hour,17,17,True,0.0,0.0,1.0
-20251107T024315,simple-raw,avg_revenue_per_trip,19.94,28.69,False,8.75,43.881644934804406,0.12236710130391193
-20251107T024315,simple-raw,optimal_distance_bracket,10+mi,2-5mi,False,,,0.0
-20251107T024315,simple-raw,trips_below_min_fare,2176876,2176876,True,0.0,0.0,1.0
-20251107T024315,simple-raw,trips_above_max_distance,2221,2221,True,0.0,0.0,1.0
-20251107T024315,simple-summarization,best_revenue_zone,Zone 132,Zone 132,True,,,1.0
-20251107T024315,simple-summarization,best_revenue_hour,17,17,True,0.0,0.0,1.0
-20251107T024315,simple-summarization,avg_revenue_per_trip,19.94,19.97,True,0.029999999999997584,0.1504513540621744,0.9984954864593782
-20251107T024315,simple-summarization,optimal_distance_bracket,10+mi,2-5mi,False,,,0.0
-20251107T024315,simple-summarization,trips_below_min_fare,2176876,2176876,True,0.0,0.0,1.0
-20251107T024315,simple-summarization,trips_above_max_distance,2221,2221,True,0.0,0.0,1.0
-20251107T024315,intent,best_revenue_zone,Zone 132,Zone 132,True,,,1.0
-20251107T024315,intent,best_revenue_hour,17,17,True,0.0,0.0,1.0
-20251107T024315,intent,avg_revenue_per_trip,19.94,28.66,False,8.719999999999999,43.731193580742215,0.12537612838515566
-20251107T024315,intent,optimal_distance_bracket,10+mi,10+mi,True,,,1.0
-20251107T024315,intent,trips_below_min_fare,2176876,2176876,True,0.0,0.0,1.0
-20251107T024315,intent,trips_above_max_distance,2221,2221,True,0.0,0.0,1.0
 d63100c7-270e-4152-b25d-608a0281f69d,simple-raw,best_revenue_zone,Zone 132,Zone 132,True,,,1.0
 d63100c7-270e-4152-b25d-608a0281f69d,simple-raw,best_revenue_hour,17,18,False,1.0,5.88235294117647,0.8823529411764706
 d63100c7-270e-4152-b25d-608a0281f69d,simple-raw,avg_revenue_per_trip,19.94,18.34,False,-1.6000000000000014,8.024072216649957,0.8395185556670008
