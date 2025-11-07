@@ -28,6 +28,11 @@ GROUND_TRUTH = {
     "trips_above_max_distance": 2221
 }
 
+# Models to exclude from analysis (only keep sonnet-4.5, gpt-4.1, gpt-4.1-mini, gemini-2.5-pro)
+BLACKLISTED_MODELS = [
+    "openai-gpt-5",
+]
+
 @dataclass
 class AgentRun:
     """Represents a single agent run with all metrics"""
@@ -227,6 +232,14 @@ def load_all_runs(outputs_dir: str = "outputs") -> List[AgentRun]:
                 except Exception as e:
                     print(f"Error loading {filepath}: {e}")
 
+    # Filter out blacklisted models
+    if BLACKLISTED_MODELS:
+        original_count = len(runs)
+        runs = [run for run in runs if run.model_name not in BLACKLISTED_MODELS]
+        filtered_count = original_count - len(runs)
+        if filtered_count > 0:
+            print(f"\nFiltered out {filtered_count} runs from blacklisted models: {', '.join(BLACKLISTED_MODELS)}")
+
     return runs
 
 
@@ -246,7 +259,8 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
     # Color palette for models
     model_colors = {
         'anthropic-claude-sonnet-4.5': '#5D4E87',
-        'openai-gpt-4.1-mini': '#10A37F'
+        'openai-gpt-4.1-mini': '#10A37F',
+        'google-gemini-2.5-pro': '#4285F4'
     }
 
     # 1. Success Rate by Agent Type and Model

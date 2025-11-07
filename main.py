@@ -45,8 +45,8 @@ async def main():
     # model_name = "anthropic/claude-sonnet-4.5"
 
     # Ok
-    # model_name = "openai/gpt-4.1"
-    model_name = "openai/gpt-4.1-mini"
+    model_name = "openai/gpt-4.1"
+    # model_name = "openai/gpt-4.1-mini"
 
     # Shit and expects a lot from user
     # model_name = "openai/gpt-5"
