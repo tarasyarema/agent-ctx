@@ -431,23 +431,30 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
     # 6. Tokens per Step Scatter Plot
     fig, ax = plt.subplots(figsize=(12, 7))
 
-    # Different markers for models
+    # Different markers for models, different colors for agent types
     markers = {'anthropic-claude-sonnet-4.5': 'o', 'openai-gpt-4.1-mini': 's'}
+    agent_colors = {
+        'intent': '#E74C3C',
+        'simple-raw': '#3498DB',
+        'simple-summarization': '#2ECC71'
+    }
 
     for agent_type in agent_types:
         for model in models:
             agent_model_data = df[(df['agent_type'] == agent_type) & (df['model_name'] == model)]
             if not agent_model_data.empty:
+                model_short = model.replace("anthropic-", "").replace("openai-", "")
                 plt.scatter(agent_model_data['total_messages'], agent_model_data['total_tokens'],
-                           label=f'{agent_type} ({model.replace("anthropic-", "").replace("openai-", "")})',
-                           alpha=0.7, s=120,
+                           label=f'{agent_type} ({model_short})',
+                           alpha=0.7, s=150,
                            marker=markers.get(model, 'o'),
-                           color=model_colors.get(model, 'steelblue'))
+                           color=agent_colors.get(agent_type, 'steelblue'),
+                           edgecolors='black', linewidths=1.5)
 
     plt.title('Total Tokens vs Number of Steps', fontsize=14, fontweight='bold')
     plt.xlabel('Number of Steps', fontsize=12)
     plt.ylabel('Total Tokens', fontsize=12)
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', frameon=True, shadow=True)
     plt.grid(True, alpha=0.3)
 
     plt.tight_layout()
@@ -831,7 +838,9 @@ def generate_summary_report(runs: List[AgentRun], output_dir: str = "analysis_ou
         )
 
         report.append("#### Field Accuracy Rates\n\n")
-        report.append("| Field | " + " | ".join(pivot_correct.columns) + " |\n")
+        # Create cleaner column headers without newlines
+        clean_columns = [col.replace('\n', ' ') for col in pivot_correct.columns]
+        report.append("| Field | " + " | ".join(clean_columns) + " |\n")
         report.append("|" + "---|" * (len(pivot_correct.columns) + 1) + "\n")
         for field in pivot_correct.index:
             report.append(f"| `{field}` |")
@@ -857,7 +866,9 @@ def generate_summary_report(runs: List[AgentRun], output_dir: str = "analysis_ou
                 aggfunc='mean'
             )
 
-            report.append("| Field | " + " | ".join(pivot_error.columns) + " |\n")
+            # Create cleaner column headers without newlines
+            clean_error_columns = [col.replace('\n', ' ') for col in pivot_error.columns]
+            report.append("| Field | " + " | ".join(clean_error_columns) + " |\n")
             report.append("|" + "---|" * (len(pivot_error.columns) + 1) + "\n")
             for field in pivot_error.index:
                 report.append(f"| `{field}` |")
@@ -921,38 +932,42 @@ def generate_summary_report(runs: List[AgentRun], output_dir: str = "analysis_ou
     # Rankings
     report.append("### Rankings\n\n")
 
-    # Success rate
-    success_rates = df.groupby('agent_type')['is_success'].mean().sort_values(ascending=False)
+    # Success rate (grouped by agent_type and model)
+    success_rates = df.groupby(['agent_type', 'model_name'])['is_success'].mean().sort_values(ascending=False)
     report.append("#### Success Rate\n\n")
-    for i, (agent, rate) in enumerate(success_rates.items(), 1):
+    for i, ((agent, model), rate) in enumerate(success_rates.items(), 1):
         medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-        report.append(f"{medal} **`{agent}`**: {rate*100:.1f}%\n")
+        model_short = model.replace('anthropic-', '').replace('openai-', '')
+        report.append(f"{medal} **`{agent}`** ({model_short}): {rate*100:.1f}%  \n")
     report.append("\n")
 
     if not successful_runs.empty:
         # Cost efficiency
-        cost_efficiency = successful_runs.groupby('agent_type')['total_cost'].mean().sort_values()
+        cost_efficiency = successful_runs.groupby(['agent_type', 'model_name'])['total_cost'].mean().sort_values()
         report.append("#### Cost Efficiency (Lower is Better)\n\n")
-        for i, (agent, cost) in enumerate(cost_efficiency.items(), 1):
+        for i, ((agent, model), cost) in enumerate(cost_efficiency.items(), 1):
             medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-            report.append(f"{medal} **`{agent}`**: ${cost:.2f}\n")
+            model_short = model.replace('anthropic-', '').replace('openai-', '')
+            report.append(f"{medal} **`{agent}`** ({model_short}): ${cost:.2f}  \n")
         report.append("\n")
 
         # Speed
-        speed_ranking = successful_runs.groupby('agent_type')['total_time_seconds'].mean().sort_values()
+        speed_ranking = successful_runs.groupby(['agent_type', 'model_name'])['total_time_seconds'].mean().sort_values()
         report.append("#### Speed (Lower is Better)\n\n")
-        for i, (agent, time) in enumerate(speed_ranking.items(), 1):
+        for i, ((agent, model), time) in enumerate(speed_ranking.items(), 1):
             medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-            report.append(f"{medal} **`{agent}`**: {time:.1f}s\n")
+            model_short = model.replace('anthropic-', '').replace('openai-', '')
+            report.append(f"{medal} **`{agent}`** ({model_short}): {time:.1f}s  \n")
         report.append("\n")
 
         # Accuracy
         if successful_runs['accuracy_score'].sum() > 0:
-            accuracy_ranking = successful_runs.groupby('agent_type')['accuracy_score'].mean().sort_values(ascending=False)
+            accuracy_ranking = successful_runs.groupby(['agent_type', 'model_name'])['accuracy_score'].mean().sort_values(ascending=False)
             report.append("#### Accuracy (Higher is Better)\n\n")
-            for i, (agent, acc) in enumerate(accuracy_ranking.items(), 1):
+            for i, ((agent, model), acc) in enumerate(accuracy_ranking.items(), 1):
                 medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-                report.append(f"{medal} **`{agent}`**: {acc:.2%}\n")
+                model_short = model.replace('anthropic-', '').replace('openai-', '')
+                report.append(f"{medal} **`{agent}`** ({model_short}): {acc:.2%}  \n")
             report.append("\n")
 
     report.append("---\n\n")
@@ -965,25 +980,33 @@ def generate_summary_report(runs: List[AgentRun], output_dir: str = "analysis_ou
         report.append("### Best Agent for Different Use Cases\n\n")
 
         # Most cost-efficient
-        best_cost = successful_runs.groupby('agent_type')['total_cost'].mean().idxmin()
-        best_cost_value = successful_runs.groupby('agent_type')['total_cost'].mean().min()
-        report.append(f"- **💰 Most Cost-Efficient:** `{best_cost}` (${best_cost_value:.2f} per run)\n")
+        best_cost_idx = successful_runs.groupby(['agent_type', 'model_name'])['total_cost'].mean().idxmin()
+        best_cost_value = successful_runs.groupby(['agent_type', 'model_name'])['total_cost'].mean().min()
+        best_cost_agent, best_cost_model = best_cost_idx
+        best_cost_model_short = best_cost_model.replace('anthropic-', '').replace('openai-', '')
+        report.append(f"- **💰 Most Cost-Efficient:** `{best_cost_agent}` ({best_cost_model_short}) - ${best_cost_value:.2f} per run\n")
 
         # Fastest
-        fastest = successful_runs.groupby('agent_type')['total_time_seconds'].mean().idxmin()
-        fastest_value = successful_runs.groupby('agent_type')['total_time_seconds'].mean().min()
-        report.append(f"- **⚡ Fastest:** `{fastest}` ({fastest_value:.1f}s per run)\n")
+        fastest_idx = successful_runs.groupby(['agent_type', 'model_name'])['total_time_seconds'].mean().idxmin()
+        fastest_value = successful_runs.groupby(['agent_type', 'model_name'])['total_time_seconds'].mean().min()
+        fastest_agent, fastest_model = fastest_idx
+        fastest_model_short = fastest_model.replace('anthropic-', '').replace('openai-', '')
+        report.append(f"- **⚡ Fastest:** `{fastest_agent}` ({fastest_model_short}) - {fastest_value:.1f}s per run\n")
 
         # Most accurate
         if successful_runs['accuracy_score'].sum() > 0:
-            most_accurate = successful_runs.groupby('agent_type')['accuracy_score'].mean().idxmax()
-            accuracy_value = successful_runs.groupby('agent_type')['accuracy_score'].mean().max()
-            report.append(f"- **🎯 Most Accurate:** `{most_accurate}` ({accuracy_value:.2%} accuracy)\n")
+            most_accurate_idx = successful_runs.groupby(['agent_type', 'model_name'])['accuracy_score'].mean().idxmax()
+            accuracy_value = successful_runs.groupby(['agent_type', 'model_name'])['accuracy_score'].mean().max()
+            most_accurate_agent, most_accurate_model = most_accurate_idx
+            most_accurate_model_short = most_accurate_model.replace('anthropic-', '').replace('openai-', '')
+            report.append(f"- **🎯 Most Accurate:** `{most_accurate_agent}` ({most_accurate_model_short}) - {accuracy_value:.2%} accuracy\n")
 
         # Most reliable (highest success rate)
-        most_reliable = success_rates.idxmax()
+        most_reliable_idx = success_rates.idxmax()
         reliable_rate = success_rates.max() * 100
-        report.append(f"- **✅ Most Reliable:** `{most_reliable}` ({reliable_rate:.1f}% success rate)\n")
+        most_reliable_agent, most_reliable_model = most_reliable_idx
+        most_reliable_model_short = most_reliable_model.replace('anthropic-', '').replace('openai-', '')
+        report.append(f"- **✅ Most Reliable:** `{most_reliable_agent}` ({most_reliable_model_short}) - {reliable_rate:.1f}% success rate\n")
 
         report.append("\n")
 

@@ -1,4 +1,3 @@
-from src.agents.prompts import USER_PROMPT
 import src.config # noqa: F401
 
 import os
@@ -6,9 +5,11 @@ import glob
 import shutil
 import traceback
 from json import dumps, loads
+from datetime import datetime
 
 import aiofiles
 
+from src.agents.prompts import USER_PROMPT
 from src.agents.simple import simple # noqa: F401
 from src.agents.intent import intent # noqa: F401
 from src.tools import CONTENT_DIR, RUN_ID
@@ -42,6 +43,7 @@ async def copy_outcome_to_final(final_path: str, metrics_path: str):
 async def main():
     # model_name = "anthropic/claude-sonnet-4.5"
     # model_name = "openai/gpt-4.1-mini"
+    # model_name = "openai/gpt-4o"
     # model_name = "google/gemini-2.5-flash-preview-09-2025"
     model_name = "google/gemini-2.5-pro"
 
@@ -112,4 +114,7 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(main())
+
+    for i in range(3):
+        RUN_ID = datetime.now().strftime("%Y%m%dT%H%M%S")
+        asyncio.run(main())

@@ -1,3 +1,4 @@
+from datetime import datetime
 import src.config  # noqa: F401
 
 import os
@@ -29,7 +30,7 @@ CONTENT_DIR = os.path.join(
 )
 
 
-RUN_ID = str(uuid.uuid4())
+RUN_ID = datetime.now().strftime("%Y%m%dT%H%M%S")
 
 print(f"Tools module initialized with RUN_ID: {RUN_ID}")
 

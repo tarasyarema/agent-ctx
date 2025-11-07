@@ -1,16 +1,55 @@
 # Agent Context Engineering
 
-TODO
+Comparative analysis of different LLM agent architectures for data analysis tasks.
 
 ## Setup
 
-`uv` and `git-lfs` are required to handle large files.
+**Requirements:** `uv` and `git-lfs`
 
+```bash
+git clone <repository>
+cd agent-ctx
+git lfs pull
+uv sync
+```
 
-You will need to pull the files using `git lfs pull` after cloning the repository.
+## Usage
 
+### Run Agent Tests
+```bash
+uv run python main.py
+```
 
-## Test data (`/data/*.parquet`)
+Runs three agent types (simple-raw, simple-summarization, intent) against the configured model and saves results to `outputs/`.
 
-The files have been download the 2025-11-06 from the [NYC.gov](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page) site
-in parquet format, only yellow taxi data for all teh available months of 2025 (January to September).
+### Generate Analysis
+```bash
+uv run python analyze_agents.py
+```
+
+Creates visualizations, CSVs, and a summary report in `analysis_output/`:
+- **Visualizations**: PNG charts comparing performance metrics
+- **CSVs**: Detailed and aggregated metrics
+- **Report**: `summary_report.md` with comprehensive analysis
+
+## Metrics
+
+- **Success Rate**: Task completion percentage (empty metrics = failure)
+- **Cost**: API costs per run and per step
+- **Speed**: Total execution time and time per step
+- **Step Count**: Number of agent iterations
+- **Token Usage**: Input/output tokens consumed
+- **Accuracy**: Correctness vs. ground truth (5% tolerance for numeric fields)
+- **Proximity Score**: 0-1 score showing how close predictions are to correct values
+
+## Test Data
+
+NYC Yellow Taxi trip data (Jan-Sep 2025) from [NYC.gov](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page) in Parquet format.
+
+## License
+
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or distribute this software, either in source code form or as a compiled binary, for any purpose, commercial or non-commercial, and by any means.
+
+For more information, please refer to <https://unlicense.org/>

@@ -36,7 +36,7 @@ async def simple(
         middleware=[
             SummarizationMiddleware(
                 model=new_llm("openai/gpt-4o-mini"),
-                max_tokens_before_summary=4000,
+                max_tokens_before_summary=12000,
                 messages_to_keep=20,
                 summary_prompt=CUSTOM_SUMMARY_PROMPT,
                 summary_prefix=CUSTOM_SUMMARY_PREFIX,

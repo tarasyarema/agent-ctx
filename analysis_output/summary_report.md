@@ -130,13 +130,7 @@
 
 #### Field Accuracy Rates
 
-| Field | intent
-(claude-sonnet-4.5) | intent
-(gpt-4.1-mini) | simple-raw
-(claude-sonnet-4.5) | simple-raw
-(gpt-4.1-mini) | simple-summarization
-(claude-sonnet-4.5) | simple-summarization
-(gpt-4.1-mini) |
+| Field | intent (claude-sonnet-4.5) | intent (gpt-4.1-mini) | simple-raw (claude-sonnet-4.5) | simple-raw (gpt-4.1-mini) | simple-summarization (claude-sonnet-4.5) | simple-summarization (gpt-4.1-mini) |
 |---|---|---|---|---|---|---|
 | `avg_revenue_per_trip` | 0% | 100% | 33% | 0% | 0% | 0% |
 | `best_revenue_hour` | 67% | 100% | 100% | 0% | 100% | 100% |
@@ -149,13 +143,7 @@
 
 ![Percentage Error](field_percentage_error.png)
 
-| Field | intent
-(claude-sonnet-4.5) | intent
-(gpt-4.1-mini) | simple-raw
-(claude-sonnet-4.5) | simple-raw
-(gpt-4.1-mini) | simple-summarization
-(claude-sonnet-4.5) | simple-summarization
-(gpt-4.1-mini) |
+| Field | intent (claude-sonnet-4.5) | intent (gpt-4.1-mini) | simple-raw (claude-sonnet-4.5) | simple-raw (gpt-4.1-mini) | simple-summarization (claude-sonnet-4.5) | simple-summarization (gpt-4.1-mini) |
 |---|---|---|---|---|---|---|
 | `avg_revenue_per_trip` | 42.4% | 0.0% | 29.2% | 8.0% | 43.7% | 36.1% |
 | `best_revenue_hour` | 2.0% | 0.0% | 0.0% | 5.9% | 0.0% | 0.0% |
@@ -223,27 +211,39 @@
 
 #### Success Rate
 
-🥇 **`intent`**: 100.0%
-🥈 **`simple-raw`**: 80.0%
-🥉 **`simple-summarization`**: 40.0%
+🥇 **`intent`** (claude-sonnet-4.5): 100.0%  
+🥈 **`intent`** (gpt-4.1-mini): 100.0%  
+🥉 **`simple-raw`** (claude-sonnet-4.5): 100.0%  
+4. **`simple-raw`** (gpt-4.1-mini): 50.0%  
+5. **`simple-summarization`** (gpt-4.1-mini): 50.0%  
+6. **`simple-summarization`** (claude-sonnet-4.5): 33.3%  
 
 #### Cost Efficiency (Lower is Better)
 
-🥇 **`intent`**: $0.23
-🥈 **`simple-summarization`**: $0.35
-🥉 **`simple-raw`**: $0.54
+🥇 **`intent`** (gpt-4.1-mini): $0.05  
+🥈 **`simple-summarization`** (gpt-4.1-mini): $0.05  
+🥉 **`simple-raw`** (gpt-4.1-mini): $0.10  
+4. **`intent`** (claude-sonnet-4.5): $0.35  
+5. **`simple-summarization`** (claude-sonnet-4.5): $0.66  
+6. **`simple-raw`** (claude-sonnet-4.5): $0.69  
 
 #### Speed (Lower is Better)
 
-🥇 **`simple-raw`**: 109.6s
-🥈 **`intent`**: 171.6s
-🥉 **`simple-summarization`**: 200.5s
+🥇 **`simple-raw`** (claude-sonnet-4.5): 109.0s  
+🥈 **`simple-raw`** (gpt-4.1-mini): 111.3s  
+🥉 **`intent`** (gpt-4.1-mini): 128.6s  
+4. **`simple-summarization`** (gpt-4.1-mini): 151.5s  
+5. **`intent`** (claude-sonnet-4.5): 200.2s  
+6. **`simple-summarization`** (claude-sonnet-4.5): 249.5s  
 
 #### Accuracy (Higher is Better)
 
-🥇 **`intent`**: 76.67%
-🥈 **`simple-raw`**: 75.00%
-🥉 **`simple-summarization`**: 58.33%
+🥇 **`intent`** (gpt-4.1-mini): 91.67%  
+🥈 **`simple-raw`** (claude-sonnet-4.5): 88.89%  
+🥉 **`simple-summarization`** (claude-sonnet-4.5): 83.33%  
+4. **`intent`** (claude-sonnet-4.5): 66.67%  
+5. **`simple-raw`** (gpt-4.1-mini): 33.33%  
+6. **`simple-summarization`** (gpt-4.1-mini): 33.33%  
 
 ---
 
@@ -251,10 +251,10 @@
 
 ### Best Agent for Different Use Cases
 
-- **💰 Most Cost-Efficient:** `intent` ($0.23 per run)
-- **⚡ Fastest:** `simple-raw` (109.6s per run)
-- **🎯 Most Accurate:** `intent` (76.67% accuracy)
-- **✅ Most Reliable:** `intent` (100.0% success rate)
+- **💰 Most Cost-Efficient:** `intent` (gpt-4.1-mini) - $0.05 per run
+- **⚡ Fastest:** `simple-raw` (claude-sonnet-4.5) - 109.0s per run
+- **🎯 Most Accurate:** `intent` (gpt-4.1-mini) - 91.67% accuracy
+- **✅ Most Reliable:** `intent` (claude-sonnet-4.5) - 100.0% success rate
 
 ### Overall Assessment
 
@@ -269,4 +269,4 @@ The data suggests different agents excel in different areas. Choose based on you
 
 ---
 
-*Report generated on 2025-11-07 02:06:46*
+*Report generated on 2025-11-07 02:25:06*
