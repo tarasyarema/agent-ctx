@@ -115,8 +115,13 @@ async def simple(
             elif hasattr(latest_message, "tool_calls") and latest_message.tool_calls:
                 print(f"Calling tools: {[tc['name'] for tc in latest_message.tool_calls]}")
 
+            else:
+                print("No content or tool calls in latest message")
+
     except Exception as e:
         print(f"Error during agent execution: {e}")
+
+    _end_time = datetime.now(timezone.utc)
 
     if output:
         print("\nFinal Response:")
@@ -130,6 +135,7 @@ async def simple(
         print(_cost.model_dump_json(indent=2))
 
     print(f"{msg_count} total messages exchanged")
+
 
     _data = {
         "run_id": RUN_ID,
@@ -145,8 +151,8 @@ async def simple(
         "agent_type": "simple",
         "latencies": latencies,
         "start_time": _start_time.isoformat(),
-        "end_time": datetime.now(timezone.utc).isoformat(),
-        "total_time_seconds": sum(float(l["elapsed_seconds"]) for l in latencies),
+        "end_time": _end_time.isoformat(),
+        "total_time_seconds": (_end_time - _start_time).total_seconds(),
         "tokens_used_approx": tokens_used,
     }
 

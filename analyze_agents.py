@@ -99,9 +99,13 @@ class AgentRun:
         total_messages = data.get('total_messages', 0)
         total_time = data.get('total_time_seconds', 0.0)
 
-        # Calculate derived metrics
+        # Calculate avg_time_per_step from latencies, filtering out values < 0.1s (tool calls)
+        latencies = data.get('latencies', [])
+        filtered_latencies = [lat['elapsed_seconds'] for lat in latencies if lat.get('elapsed_seconds', 0) >= 0.1]
+        avg_time_per_step = sum(filtered_latencies) / len(filtered_latencies) if filtered_latencies else 0
+
+        # Calculate other derived metrics
         avg_tokens_per_step = total_tokens / total_messages if total_messages > 0 else 0
-        avg_time_per_step = total_time / total_messages if total_messages > 0 else 0
         cost_per_step = total_cost / total_messages if total_messages > 0 else 0
 
         return cls(
@@ -272,8 +276,8 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
     agent_types = sorted(df['agent_type'].unique())
     models = sorted(df['model_name'].unique())
     x = np.arange(len(agent_types))
-    width = 0.25  # Thinner bars
-    spacing = 0.12  # Spacing between bars (creates overlap)
+    width = 0.20  # Thinner bars
+    spacing = 0.22  # Spacing between bars (no overlap)
 
     fig, ax = plt.subplots(figsize=(14, 7))
 
@@ -506,63 +510,38 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
     plt.savefig(f"{output_dir}/per_step_latency.png", dpi=300)
     plt.close()
 
-    # 8. Throughput: Tokens per Second
-    df['tokens_per_second'] = df['total_tokens'] / df['total_time_seconds']
+    # 8. Context Growth Over Steps (per model)
+    num_models = len(models)
+    fig, axes = plt.subplots(1, num_models, figsize=(7 * num_models, 6), squeeze=False)
+    axes = axes.flatten()
 
-    fig, ax = plt.subplots(figsize=(14, 7))
-    throughput_data = df.groupby(['agent_type', 'model_name'])['tokens_per_second'].mean().reset_index()
+    for idx, model in enumerate(models):
+        ax = axes[idx]
+        model_data = df[df['model_name'] == model]
 
-    for i, model in enumerate(models):
-        model_data = throughput_data[throughput_data['model_name'] == model]
-        throughputs = [model_data[model_data['agent_type'] == agent]['tokens_per_second'].values[0]
-                      if len(model_data[model_data['agent_type'] == agent]) > 0 else 0
-                      for agent in agent_types]
+        for agent_type in agent_types:
+            agent_model_data = model_data[model_data['agent_type'] == agent_type].sort_values('total_messages')
 
-        offset = spacing * (i - len(models)/2 + 0.5)
-        bars = ax.bar(x + offset, throughputs, width, label=model.replace('anthropic-', '').replace('openai-', ''),
-                     color=model_colors.get(model, 'teal'), alpha=0.85)
-
-        # Add value labels
-        for bar, thr in zip(bars, throughputs):
-            if thr > 0:
-                ax.text(bar.get_x() + bar.get_width()/2, thr, f'{thr:.0f}',
-                       ha='center', va='bottom', fontsize=9)
-
-    ax.set_xlabel('Agent Type', fontsize=12)
-    ax.set_ylabel('Tokens per Second', fontsize=12)
-    ax.set_title('Token Processing Throughput by Agent Type and Model', fontsize=14, fontweight='bold')
-    ax.set_xticks(x)
-    ax.set_xticklabels(agent_types, rotation=45, ha='right')
-    ax.legend(title='Model')
-    ax.grid(axis='y', alpha=0.3)
-
-    plt.tight_layout()
-    plt.savefig(f"{output_dir}/tokens_per_second.png", dpi=300)
-    plt.close()
-
-    # 9. Latency vs Token Usage scatter
-    fig, ax = plt.subplots(figsize=(12, 7))
-
-    for agent_type in agent_types:
-        for model in models:
-            agent_model_data = df[(df['agent_type'] == agent_type) & (df['model_name'] == model)]
             if not agent_model_data.empty:
-                model_short = model.replace("anthropic-", "").replace("openai-", "")
-                plt.scatter(agent_model_data['avg_tokens_per_step'], agent_model_data['avg_time_per_step'],
-                           label=f'{agent_type} ({model_short})',
-                           alpha=0.7, s=150,
-                           marker=markers.get(model, 'o'),
-                           color=agent_colors.get(agent_type, 'steelblue'),
-                           edgecolors='black', linewidths=1.5)
+                color = agent_colors.get(agent_type, 'steelblue')
 
-    plt.title('Per-Step Latency vs Tokens per Step', fontsize=14, fontweight='bold')
-    plt.xlabel('Average Tokens per Step', fontsize=12)
-    plt.ylabel('Average Time per Step (seconds)', fontsize=12)
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', frameon=True, shadow=True)
-    plt.grid(True, alpha=0.3)
+                # Plot all runs with line and markers
+                ax.plot(agent_model_data['total_messages'], agent_model_data['total_tokens'],
+                       marker='o', linewidth=2.5, markersize=8,
+                       label=agent_type.replace('-', ' ').title(),
+                       color=color, alpha=0.8)
 
+        model_short = model.replace('anthropic-', '').replace('openai-', '').replace('google-', '')
+        ax.set_title(f'{model_short}', fontsize=13, fontweight='bold')
+        ax.set_xlabel('Steps', fontsize=11)
+        if idx == 0:
+            ax.set_ylabel('Context (Total Tokens)', fontsize=11)
+        ax.legend(fontsize=9, loc='upper left', frameon=True)
+        ax.grid(True, alpha=0.3, linestyle='--')
+
+    plt.suptitle('Context Growth Over Steps by Model', fontsize=16, fontweight='bold', y=1.02)
     plt.tight_layout()
-    plt.savefig(f"{output_dir}/latency_vs_tokens.png", dpi=300)
+    plt.savefig(f"{output_dir}/context_growth.png", dpi=300, bbox_inches='tight')
     plt.close()
 
     # 10. Accuracy Score (for successful runs)
@@ -622,26 +601,7 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
     if accuracy_records:
         acc_df = pd.DataFrame(accuracy_records)
 
-        # 8a. Field-level accuracy heatmap
-        plt.figure(figsize=(14, 8))
-        pivot_correct = acc_df.pivot_table(
-            values='is_correct',
-            index='field',
-            columns='agent_model',
-            aggfunc='mean'
-        )
-
-        sns.heatmap(pivot_correct, annot=True, fmt='.0%', cmap='RdYlGn',
-                   vmin=0, vmax=1, cbar_kws={'label': 'Accuracy Rate'},
-                   linewidths=0.5, linecolor='gray')
-        plt.title('Field-Level Accuracy by Agent Type and Model', fontsize=14, fontweight='bold')
-        plt.xlabel('Agent Type (Model)', fontsize=12)
-        plt.ylabel('Field', fontsize=12)
-        plt.tight_layout()
-        plt.savefig(f"{output_dir}/field_accuracy_heatmap.png", dpi=300)
-        plt.close()
-
-        # 8b. Proximity score heatmap
+        # 8. Proximity score heatmap
         plt.figure(figsize=(14, 8))
         pivot_proximity = acc_df.pivot_table(
             values='proximity_score',
@@ -659,211 +619,6 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
         plt.tight_layout()
         plt.savefig(f"{output_dir}/field_proximity_heatmap.png", dpi=300)
         plt.close()
-
-        # 8c. Percentage error for numeric fields
-        numeric_errors = acc_df[acc_df['percentage_error'].notna()]
-        if not numeric_errors.empty:
-            fig, ax = plt.subplots(figsize=(14, 7))
-            pivot_error = numeric_errors.pivot_table(
-                values='percentage_error',
-                index='field',
-                columns='agent_model',
-                aggfunc='mean'
-            )
-
-            # Create grouped bar chart
-            pivot_error.plot(kind='bar', width=0.8, ax=ax)
-            ax.set_title('Average Percentage Error by Field (Numeric Fields Only)',
-                     fontsize=14, fontweight='bold')
-            ax.set_xlabel('Field', fontsize=12)
-            ax.set_ylabel('Average % Error', fontsize=12)
-            ax.legend(title='Agent Type (Model)', bbox_to_anchor=(1.05, 1), loc='upper left')
-            ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
-            ax.axhline(y=5, color='r', linestyle='--', alpha=0.5, label='5% threshold')
-            ax.grid(axis='y', alpha=0.3)
-            plt.tight_layout()
-            plt.savefig(f"{output_dir}/field_percentage_error.png", dpi=300)
-            plt.close()
-
-    # 11. Token Growth Regression Analysis
-    # Calculate regression for each agent_type and model combination
-    regression_data = []
-
-    fig, axes = plt.subplots(len(agent_types), len(models), figsize=(18, 5 * len(agent_types)), squeeze=False)
-
-    for row_idx, agent_type in enumerate(agent_types):
-        for col_idx, model in enumerate(models):
-            ax = axes[row_idx, col_idx]
-            agent_model_data = df[(df['agent_type'] == agent_type) & (df['model_name'] == model)]
-
-            if not agent_model_data.empty and len(agent_model_data) >= 3:  # Need at least 3 points for polynomial
-                steps = agent_model_data['total_messages'].values
-                tokens_per_step = agent_model_data['avg_tokens_per_step'].values
-
-                # Try polynomial fits of degree 2 and 3, select best based on R²
-                best_degree = 1
-                best_r_squared = 0
-                best_coeffs = None
-
-                for degree in [2, 3]:
-                    try:
-                        coeffs = np.polyfit(steps, tokens_per_step, degree)
-                        poly_pred = np.polyval(coeffs, steps)
-
-                        # Calculate R²
-                        ss_res = np.sum((tokens_per_step - poly_pred) ** 2)
-                        ss_tot = np.sum((tokens_per_step - np.mean(tokens_per_step)) ** 2)
-                        r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
-
-                        if r_squared > best_r_squared:
-                            best_r_squared = r_squared
-                            best_degree = degree
-                            best_coeffs = coeffs
-                    except:
-                        continue
-
-                # If polynomial didn't work, fall back to linear
-                if best_coeffs is None:
-                    slope, intercept, r_value, _, _ = stats.linregress(steps, tokens_per_step)
-                    best_coeffs = [slope, intercept]
-                    best_degree = 1
-                    best_r_squared = r_value ** 2
-
-                # Store regression data
-                if not np.isnan(best_r_squared):
-                    regression_data.append({
-                        'agent_type': agent_type,
-                        'model_name': model,
-                        'degree': best_degree,
-                        'coefficients': best_coeffs,
-                        'r_squared': best_r_squared
-                    })
-
-                # Plot scatter points
-                color = agent_colors.get(agent_type, 'steelblue')
-                ax.scatter(steps, tokens_per_step, color=color, alpha=0.7, s=100,
-                          edgecolors='black', linewidths=1)
-
-                # Plot regression curve
-                x_line = np.linspace(steps.min(), steps.max(), 100)
-                y_line = np.polyval(best_coeffs, x_line)
-
-                # Determine efficiency pattern for color coding
-                if best_degree >= 2:
-                    # Check second derivative at midpoint to determine curvature
-                    mid_x = (steps.min() + steps.max()) / 2
-                    derivative = np.polyder(best_coeffs)
-                    slope_at_mid = np.polyval(derivative, mid_x)
-                    curve_color = 'green' if slope_at_mid < 0 else 'red' if slope_at_mid > 0 else 'blue'
-                else:
-                    curve_color = 'green' if best_coeffs[0] < 0 else 'red' if best_coeffs[0] > 0 else 'blue'
-
-                ax.plot(x_line, y_line, '--', linewidth=2, color=curve_color,
-                       label=f'Poly({best_degree})')
-
-                # Add extrapolation
-                x_extrap = np.linspace(steps.min(), max(steps.max(), 100), 100)
-                y_extrap = np.polyval(best_coeffs, x_extrap)
-                # Only show positive predictions
-                y_extrap = np.where(y_extrap > 0, y_extrap, np.nan)
-                ax.plot(x_extrap, y_extrap, ':', linewidth=1.5, alpha=0.5, color=curve_color,
-                       label='Extrapolation')
-
-                # Styling
-                model_short = model.replace('anthropic-', '').replace('openai-', '').replace('google-', '')
-                ax.set_title(f'{agent_type} ({model_short})\nDegree {best_degree}, R² = {best_r_squared:.3f}',
-                           fontsize=11, fontweight='bold')
-                ax.set_xlabel('Total Steps', fontsize=10)
-                ax.set_ylabel('Tokens per Step', fontsize=10)
-                ax.legend(fontsize=8)
-                ax.grid(True, alpha=0.3)
-            elif not agent_model_data.empty and len(agent_model_data) == 1:
-                # Plot single data point
-                steps = agent_model_data['total_messages'].values
-                tokens_per_step = agent_model_data['avg_tokens_per_step'].values
-                color = agent_colors.get(agent_type, 'steelblue')
-                ax.scatter(steps, tokens_per_step, color=color, alpha=0.7, s=100,
-                          edgecolors='black', linewidths=1)
-                model_short = model.replace('anthropic-', '').replace('openai-', '').replace('google-', '')
-                ax.set_title(f'{agent_type} ({model_short})\nInsufficient data for regression',
-                           fontsize=11, fontweight='bold')
-                ax.set_xlabel('Total Steps', fontsize=10)
-                ax.set_ylabel('Tokens per Step', fontsize=10)
-                ax.grid(True, alpha=0.3)
-            else:
-                model_short = model.replace('anthropic-', '').replace('openai-', '').replace('google-', '')
-                ax.text(0.5, 0.5, f'No data\n{agent_type} ({model_short})', ha='center', va='center',
-                       transform=ax.transAxes, fontsize=10)
-                ax.set_xticks([])
-                ax.set_yticks([])
-
-    plt.suptitle('Tokens per Step Scaling with Total Steps',
-                fontsize=16, fontweight='bold', y=0.995)
-    plt.tight_layout()
-    plt.savefig(f"{output_dir}/token_growth_regression.png", dpi=300, bbox_inches='tight')
-    plt.close()
-
-    # Create regression summary CSV
-    if regression_data:
-        # Expand coefficients for CSV export
-        regression_records = []
-        prediction_steps = [50, 100, 200, 500]
-
-        for data in regression_data:
-            record = {
-                'agent_type': data['agent_type'],
-                'model_name': data['model_name'],
-                'degree': data['degree'],
-                'r_squared': data['r_squared']
-            }
-
-            # Store coefficients (highest degree first)
-            coeffs = data['coefficients']
-            for i, coeff in enumerate(coeffs):
-                record[f'coeff_{len(coeffs)-1-i}'] = coeff
-
-            # Calculate predictions at different step counts
-            for step_count in prediction_steps:
-                # Predicted tokens per step at this step count
-                tokens_per_step_pred = np.polyval(coeffs, step_count)
-                # Constrain to positive values
-                tokens_per_step_pred = max(0, tokens_per_step_pred)
-
-                record[f'tokens_per_step_at_{step_count}'] = int(tokens_per_step_pred)
-                # Total tokens would be: tokens_per_step * step_count
-                record[f'total_tokens_at_{step_count}'] = int(tokens_per_step_pred * step_count)
-
-            # Calculate efficiency metrics
-            # Change in tokens/step from 50 to 100 steps
-            tokens_50 = np.polyval(coeffs, 50)
-            tokens_100 = np.polyval(coeffs, 100)
-            tokens_200 = np.polyval(coeffs, 200)
-
-            # Efficiency change percentage
-            if tokens_50 > 0:
-                efficiency_change_50_to_100 = ((tokens_100 - tokens_50) / tokens_50) * 100
-                record['efficiency_change_50_to_100_pct'] = efficiency_change_50_to_100
-            else:
-                record['efficiency_change_50_to_100_pct'] = None
-
-            if tokens_100 > 0:
-                efficiency_change_100_to_200 = ((tokens_200 - tokens_100) / tokens_100) * 100
-                record['efficiency_change_100_to_200_pct'] = efficiency_change_100_to_200
-            else:
-                record['efficiency_change_100_to_200_pct'] = None
-
-            # Overall efficiency rating (lower change = better)
-            if record['efficiency_change_50_to_100_pct'] is not None:
-                # Negative change = improving efficiency (good), positive = degrading (bad)
-                record['efficiency_rating'] = -record['efficiency_change_50_to_100_pct']
-            else:
-                record['efficiency_rating'] = None
-
-            regression_records.append(record)
-
-        regression_df = pd.DataFrame(regression_records)
-        regression_df.to_csv(f"{output_dir}/token_growth_regression.csv", index=False)
-        print(f"Exported: {output_dir}/token_growth_regression.csv")
 
     print(f"\nVisualizations saved to {output_dir}/")
 
@@ -970,6 +725,7 @@ def generate_summary_report(runs: List[AgentRun], output_dir: str = "analysis_ou
     report.append("## Overview\n\n")
     report.append(f"**Total Runs Analyzed:** {len(runs)}  \n")
     report.append(f"**Agent Types:** {df['agent_type'].nunique()}  \n")
+    report.append(f"**Total Cost:** ${df['total_cost'].sum():.2f}  \n")
     report.append(f"**Date:** {pd.Timestamp.now().strftime('%Y-%m-%d')}\n\n")
 
     # Models used
@@ -1085,135 +841,16 @@ def generate_summary_report(runs: List[AgentRun], output_dir: str = "analysis_ou
         report.append(f"| `{agent}` | `{short_model}` | {latency_data.loc[(agent, model), 'mean']:.2f}s | ±{latency_data.loc[(agent, model), 'std']:.2f}s |\n")
     report.append("\n")
 
-    # Tokens per second (throughput)
-    df['tokens_per_second'] = df['total_tokens'] / df['total_time_seconds']
-    report.append("### Token Processing Throughput\n\n")
-    report.append("![Tokens per Second](tokens_per_second.png)\n\n")
-
-    throughput_data = df.groupby(['agent_type', 'model_name'])['tokens_per_second'].agg(['mean', 'std'])
-    report.append("| Agent Type | Model | Tokens/Second | Std Dev |\n")
-    report.append("|------------|-------|---------------|----------|\n")
-    for (agent, model) in throughput_data.index:
-        short_model = model.replace('anthropic-', '').replace('openai-', '')
-        report.append(f"| `{agent}` | `{short_model}` | {throughput_data.loc[(agent, model), 'mean']:.0f} | ±{throughput_data.loc[(agent, model), 'std']:.0f} |\n")
-    report.append("\n")
-
-    # Latency vs Tokens relationship
-    report.append("### Latency vs Token Usage\n\n")
-    report.append("![Latency vs Tokens](latency_vs_tokens.png)\n\n")
-    report.append("This scatter plot shows the relationship between tokens per step and latency per step, "
-                 "helping identify efficiency patterns across different agent configurations.\n\n")
-
-    # Token Growth Regression Analysis
-    report.append("### Token Growth Scaling Analysis\n\n")
-    report.append("![Token Growth Regression](token_growth_regression.png)\n\n")
-    report.append("Polynomial regression (degree 2-3) showing how **tokens per step** changes as total steps increase. "
-                 "This reveals whether agents become more/less efficient with more steps. "
-                 "Curves are color-coded: 🟢 **green** = improving efficiency, 🔴 **red** = degrading efficiency, 🔵 **blue** = stable. "
-                 "Solid curves show fitted trend, dotted lines extrapolate beyond observed data (constrained to positive values).\n\n")
-
-    # Load regression data if it exists
-    regression_csv = f"{output_dir}/token_growth_regression.csv"
-    if os.path.exists(regression_csv):
-        regression_df = pd.read_csv(regression_csv)
-
-        report.append("#### Model Fit Parameters\n\n")
-        report.append("| Agent Type | Model | Degree | R² | Equation |\n")
-        report.append("|------------|-------|--------|-----|----------|\n")
-
-        for _, row in regression_df.iterrows():
-            short_model = row['model_name'].replace('anthropic-', '').replace('openai-', '').replace('google-', '')
-            degree = int(row['degree'])
-
-            # Build polynomial equation string
-            equation_parts = []
-            for i in range(degree + 1):
-                coeff_col = f'coeff_{degree - i}'
-                if coeff_col in row and not pd.isna(row[coeff_col]):
-                    coeff = row[coeff_col]
-                    if abs(coeff) < 0.01 and i < degree:  # Skip very small coefficients except constant
-                        continue
-
-                    coeff_str = f"{coeff:.2f}" if abs(coeff) < 100 else f"{coeff:.0f}"
-                    if degree - i == 0:
-                        equation_parts.append(coeff_str)
-                    elif degree - i == 1:
-                        equation_parts.append(f"{coeff_str}x")
-                    else:
-                        equation_parts.append(f"{coeff_str}x^{degree-i}")
-
-            equation = " + ".join(equation_parts).replace("+ -", "- ")
-
-            report.append(f"| `{row['agent_type']}` | `{short_model}` | {degree} | "
-                        f"{row['r_squared']:.3f} | `{equation}` |\n")
-
-        report.append("\n**Interpretation:**\n")
-        report.append("- **Degree**: Polynomial degree (2 or 3) selected for best fit\n")
-        report.append("- **R²**: Goodness of fit (higher = better, 1.0 = perfect fit)\n")
-        report.append("- **Equation**: Polynomial function describing tokens/step as function of total steps (x)\n\n")
-
-        # Efficiency rankings
-        report.append("#### Efficiency Rankings\n\n")
-        report.append("Ranked by efficiency change from 50 to 100 steps (negative = improving, positive = degrading):\n\n")
-
-        # Filter only reliable fits
-        reliable_df = regression_df[regression_df['r_squared'] >= 0.3].copy()
-
-        if not reliable_df.empty and 'efficiency_change_50_to_100_pct' in reliable_df.columns:
-            # Filter out NaN values
-            valid_df = reliable_df[reliable_df['efficiency_change_50_to_100_pct'].notna()].copy()
-
-            if not valid_df.empty:
-                valid_df = valid_df.sort_values('efficiency_change_50_to_100_pct')
-
-                medals = ['🥇', '🥈', '🥉']
-                for idx, (_, row) in enumerate(valid_df.iterrows()):
-                    short_model = row['model_name'].replace('anthropic-', '').replace('openai-', '').replace('google-', '')
-                    medal = medals[idx] if idx < 3 else f"{idx+1}."
-                    change_pct = row['efficiency_change_50_to_100_pct']
-
-                    if change_pct < 0:
-                        trend = f"🟢 {change_pct:.1f}% (improving)"
-                    elif change_pct > 5:
-                        trend = f"🔴 +{change_pct:.1f}% (degrading)"
-                    else:
-                        trend = f"🔵 +{change_pct:.1f}% (stable)"
-
-                    report.append(f"{medal} **`{row['agent_type']}`** ({short_model}): {trend}  \n")
-
-                report.append("\n")
-            else:
-                report.append("*No valid efficiency data available*\n\n")
-        else:
-            report.append("*Insufficient reliable regression data (R² < 0.3) for efficiency rankings*\n\n")
-
-        report.append("#### Predicted Tokens per Step at Different Scales\n\n")
-        report.append("| Agent Type | Model | @ 50 steps | @ 100 steps | @ 200 steps | @ 500 steps |\n")
-        report.append("|------------|-------|------------|-------------|-------------|-------------|\n")
-
-        for _, row in regression_df.iterrows():
-            short_model = row['model_name'].replace('anthropic-', '').replace('openai-', '').replace('google-', '')
-            report.append(f"| `{row['agent_type']}` | `{short_model}` | "
-                        f"{row['tokens_per_step_at_50']:,} | "
-                        f"{row['tokens_per_step_at_100']:,} | "
-                        f"{row['tokens_per_step_at_200']:,} | "
-                        f"{row['tokens_per_step_at_500']:,} |\n")
-
-        report.append("\n")
-
-        report.append("#### Predicted Total Token Usage at Different Scales\n\n")
-        report.append("| Agent Type | Model | @ 50 steps | @ 100 steps | @ 200 steps | @ 500 steps |\n")
-        report.append("|------------|-------|------------|-------------|-------------|-------------|\n")
-
-        for _, row in regression_df.iterrows():
-            short_model = row['model_name'].replace('anthropic-', '').replace('openai-', '').replace('google-', '')
-            report.append(f"| `{row['agent_type']}` | `{short_model}` | "
-                        f"{row['total_tokens_at_50']:,} | "
-                        f"{row['total_tokens_at_100']:,} | "
-                        f"{row['total_tokens_at_200']:,} | "
-                        f"{row['total_tokens_at_500']:,} |\n")
-
-        report.append("\n")
+    report.append("### Context Growth Over Steps\n\n")
+    report.append("![Context Growth](context_growth.png)\n\n")
+    report.append("This chart shows how context (total tokens) grows with the number of steps for each agent type, "
+                 "broken down by model.\n\n")
+    report.append("**Key Patterns:**\n")
+    report.append("- **Append (simple-raw)**: Linear/exponential growth. "
+                 "May accumulate irrelevant messages that can cause the LLM to lose track\n")
+    report.append("- **Summary (simple-summarization)**: Context may plateau after summarization triggers. "
+                 "Risk of losing initial intent during compression\n")
+    report.append("- **Intent**: Controlled minimal growth. Keeps only essential information through intentional compactification\n\n")
 
     if not successful_runs.empty and successful_runs['accuracy_score'].sum() > 0:
         report.append("### Accuracy Score\n\n")
@@ -1253,63 +890,10 @@ def generate_summary_report(runs: List[AgentRun], output_dir: str = "analysis_ou
     if accuracy_records:
         acc_df = pd.DataFrame(accuracy_records)
 
-        report.append("#### Field Accuracy Heatmap\n\n")
-        report.append("![Field Accuracy Heatmap](field_accuracy_heatmap.png)\n\n")
-
         report.append("#### Proximity Score Heatmap\n\n")
         report.append("![Field Proximity Heatmap](field_proximity_heatmap.png)\n\n")
-
-        # Table showing field-level accuracy
-        pivot_correct = acc_df.pivot_table(
-            values='is_correct',
-            index='field',
-            columns='agent_model',
-            aggfunc='mean'
-        )
-
-        report.append("#### Field Accuracy Rates\n\n")
-        # Create cleaner column headers without newlines
-        clean_columns = [col.replace('\n', ' ') for col in pivot_correct.columns]
-        report.append("| Field | " + " | ".join(clean_columns) + " |\n")
-        report.append("|" + "---|" * (len(pivot_correct.columns) + 1) + "\n")
-        for field in pivot_correct.index:
-            report.append(f"| `{field}` |")
-            for agent_model in pivot_correct.columns:
-                val = pivot_correct.loc[field, agent_model]
-                if pd.notna(val):
-                    report.append(f" {val:.0%} |")
-                else:
-                    report.append(" N/A |")
-            report.append("\n")
-        report.append("\n")
-
-        # Percentage error for numeric fields
-        numeric_errors = acc_df[acc_df['percentage_error'].notna()]
-        if not numeric_errors.empty:
-            report.append("#### Percentage Error (Numeric Fields)\n\n")
-            report.append("![Percentage Error](field_percentage_error.png)\n\n")
-
-            pivot_error = numeric_errors.pivot_table(
-                values='percentage_error',
-                index='field',
-                columns='agent_model',
-                aggfunc='mean'
-            )
-
-            # Create cleaner column headers without newlines
-            clean_error_columns = [col.replace('\n', ' ') for col in pivot_error.columns]
-            report.append("| Field | " + " | ".join(clean_error_columns) + " |\n")
-            report.append("|" + "---|" * (len(pivot_error.columns) + 1) + "\n")
-            for field in pivot_error.index:
-                report.append(f"| `{field}` |")
-                for agent_model in pivot_error.columns:
-                    val = pivot_error.loc[field, agent_model]
-                    if pd.notna(val):
-                        report.append(f" {val:.1f}% |")
-                    else:
-                        report.append(" N/A |")
-                report.append("\n")
-            report.append("\n")
+        report.append("This heatmap shows how close predicted values are to the correct answers (0-1 scale), "
+                     "where 1.0 is perfect accuracy.\n\n")
 
     report.append("---\n\n")
 
@@ -1441,42 +1025,7 @@ def generate_summary_report(runs: List[AgentRun], output_dir: str = "analysis_ou
         report.append("\n")
 
     # Final thoughts
-    report.append("### Overall Assessment\n\n")
-
-    # Calculate a composite score
-    if not successful_runs.empty:
-        report.append("Based on the analysis:\n\n")
-
-        # Normalize metrics for comparison (lower is better for cost and time, higher for accuracy and success)
-        metrics_comparison = []
-        for agent_type in df['agent_type'].unique():
-            agent_successful = successful_runs[successful_runs['agent_type'] == agent_type]
-            if len(agent_successful) > 0:
-                success_rate = df[df['agent_type'] == agent_type]['is_success'].mean()
-                avg_cost = agent_successful['total_cost'].mean()
-                avg_time = agent_successful['total_time_seconds'].mean()
-                avg_accuracy = agent_successful['accuracy_score'].mean()
-
-                metrics_comparison.append({
-                    'agent': agent_type,
-                    'success_rate': success_rate,
-                    'cost': avg_cost,
-                    'time': avg_time,
-                    'accuracy': avg_accuracy
-                })
-
-        if metrics_comparison:
-            metrics_df = pd.DataFrame(metrics_comparison)
-
-            # Find balanced agent (good across all metrics)
-            report.append("The data suggests different agents excel in different areas. ")
-            report.append("Choose based on your priorities:\n\n")
-            report.append("- If **budget is critical**, prioritize the most cost-efficient agent\n")
-            report.append("- If **speed is essential**, choose the fastest agent\n")
-            report.append("- If **accuracy matters most**, select the most accurate agent\n")
-            report.append("- If **reliability is key**, go with the highest success rate\n")
-
-    report.append("\n---\n\n")
+    report.append("---\n\n")
     report.append(f"*Report generated on {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}*\n")
 
     # Write report
