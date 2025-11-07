@@ -683,10 +683,10 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
 
             if not agent_model_data.empty and len(agent_model_data) >= 2:
                 steps = agent_model_data['total_messages'].values
-                tokens = agent_model_data['total_tokens'].values
+                tokens_per_step = agent_model_data['avg_tokens_per_step'].values
 
                 # Calculate linear regression
-                slope, intercept, r_value, p_value, std_err = stats.linregress(steps, tokens)
+                slope, intercept, r_value, p_value, std_err = stats.linregress(steps, tokens_per_step)
                 r_squared = r_value ** 2
 
                 # Store regression data (only if not NaN)
@@ -702,7 +702,7 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
 
                 # Plot scatter points
                 color = agent_colors.get(agent_type, 'steelblue')
-                ax.scatter(steps, tokens, color=color, alpha=0.7, s=100,
+                ax.scatter(steps, tokens_per_step, color=color, alpha=0.7, s=100,
                           edgecolors='black', linewidths=1)
 
                 # Plot regression line
@@ -719,22 +719,22 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
                 model_short = model.replace('anthropic-', '').replace('openai-', '').replace('google-', '')
                 ax.set_title(f'{agent_type} ({model_short})\nR² = {r_squared:.3f}',
                            fontsize=11, fontweight='bold')
-                ax.set_xlabel('Steps', fontsize=10)
-                ax.set_ylabel('Total Tokens', fontsize=10)
+                ax.set_xlabel('Total Steps', fontsize=10)
+                ax.set_ylabel('Tokens per Step', fontsize=10)
                 ax.legend(fontsize=9)
                 ax.grid(True, alpha=0.3)
             elif not agent_model_data.empty and len(agent_model_data) == 1:
                 # Plot single data point
                 steps = agent_model_data['total_messages'].values
-                tokens = agent_model_data['total_tokens'].values
+                tokens_per_step = agent_model_data['avg_tokens_per_step'].values
                 color = agent_colors.get(agent_type, 'steelblue')
-                ax.scatter(steps, tokens, color=color, alpha=0.7, s=100,
+                ax.scatter(steps, tokens_per_step, color=color, alpha=0.7, s=100,
                           edgecolors='black', linewidths=1)
                 model_short = model.replace('anthropic-', '').replace('openai-', '').replace('google-', '')
                 ax.set_title(f'{agent_type} ({model_short})\nInsufficient data for regression',
                            fontsize=11, fontweight='bold')
-                ax.set_xlabel('Steps', fontsize=10)
-                ax.set_ylabel('Total Tokens', fontsize=10)
+                ax.set_xlabel('Total Steps', fontsize=10)
+                ax.set_ylabel('Tokens per Step', fontsize=10)
                 ax.grid(True, alpha=0.3)
             else:
                 model_short = model.replace('anthropic-', '').replace('openai-', '').replace('google-', '')
@@ -743,7 +743,7 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
                 ax.set_xticks([])
                 ax.set_yticks([])
 
-    plt.suptitle('Token Growth vs Steps with Linear Regression',
+    plt.suptitle('Tokens per Step Scaling with Total Steps',
                 fontsize=16, fontweight='bold', y=0.995)
     plt.tight_layout()
     plt.savefig(f"{output_dir}/token_growth_regression.png", dpi=300, bbox_inches='tight')
@@ -756,9 +756,11 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
         # Add predictions at different step counts
         prediction_steps = [50, 100, 200, 500]
         for step_count in prediction_steps:
-            regression_df[f'predicted_tokens_at_{step_count}_steps'] = (
-                regression_df['slope'] * step_count + regression_df['intercept']
-            ).astype(int)
+            # Predicted tokens per step at this step count
+            tokens_per_step_pred = regression_df['slope'] * step_count + regression_df['intercept']
+            regression_df[f'tokens_per_step_at_{step_count}'] = tokens_per_step_pred.astype(int)
+            # Total tokens would be: tokens_per_step * step_count
+            regression_df[f'total_tokens_at_{step_count}'] = (tokens_per_step_pred * step_count).astype(int)
 
         regression_df.to_csv(f"{output_dir}/token_growth_regression.csv", index=False)
         print(f"Exported: {output_dir}/token_growth_regression.csv")
@@ -1005,8 +1007,9 @@ def generate_summary_report(runs: List[AgentRun], output_dir: str = "analysis_ou
     # Token Growth Regression Analysis
     report.append("### Token Growth Scaling Analysis\n\n")
     report.append("![Token Growth Regression](token_growth_regression.png)\n\n")
-    report.append("Linear regression analysis showing how token usage scales with the number of steps. "
-                 "The regression lines (dashed) show the trend, while dotted lines extrapolate beyond observed data.\n\n")
+    report.append("Linear regression showing how **tokens per step** changes as total steps increase. "
+                 "This reveals whether agents become more/less efficient with more steps. "
+                 "Regression lines (dashed) show the trend, dotted lines extrapolate beyond observed data.\n\n")
 
     # Load regression data if it exists
     regression_csv = f"{output_dir}/token_growth_regression.csv"
@@ -1014,31 +1017,49 @@ def generate_summary_report(runs: List[AgentRun], output_dir: str = "analysis_ou
         regression_df = pd.read_csv(regression_csv)
 
         report.append("#### Regression Parameters\n\n")
-        report.append("| Agent Type | Model | Tokens/Step (Slope) | Base Tokens (Intercept) | R² | Predicted @ 100 steps |\n")
-        report.append("|------------|-------|---------------------|-------------------------|-----|----------------------|\n")
+        report.append("| Agent Type | Model | Change Rate (Slope) | Base tokens/step | R² | tokens/step @ 100 steps |\n")
+        report.append("|------------|-------|---------------------|------------------|-----|------------------------|\n")
 
         for _, row in regression_df.iterrows():
             short_model = row['model_name'].replace('anthropic-', '').replace('openai-', '').replace('google-', '')
-            report.append(f"| `{row['agent_type']}` | `{short_model}` | {row['slope']:.1f} | "
+            slope_sign = "+" if row['slope'] >= 0 else ""
+            report.append(f"| `{row['agent_type']}` | `{short_model}` | {slope_sign}{row['slope']:.1f} | "
                         f"{row['intercept']:.0f} | {row['r_squared']:.3f} | "
-                        f"{row['predicted_tokens_at_100_steps']:,} |\n")
+                        f"{row['tokens_per_step_at_100']:,} |\n")
 
         report.append("\n**Interpretation:**\n")
-        report.append("- **Tokens/Step (Slope)**: Additional tokens consumed per additional step\n")
-        report.append("- **Base Tokens (Intercept)**: Fixed overhead tokens\n")
+        report.append("- **Change Rate (Slope)**: How tokens/step changes with each additional step\n")
+        report.append("  - Positive = getting less efficient (more tokens per step as steps increase)\n")
+        report.append("  - Negative = getting more efficient (fewer tokens per step as steps increase)\n")
+        report.append("  - Near zero = consistent tokens/step regardless of total steps\n")
+        report.append("- **Base tokens/step (Intercept)**: Expected tokens/step at step 0\n")
         report.append("- **R²**: How well the linear model fits (1.0 = perfect fit)\n\n")
 
-        report.append("#### Extrapolated Token Predictions\n\n")
+        report.append("#### Predicted Tokens per Step at Different Scales\n\n")
         report.append("| Agent Type | Model | @ 50 steps | @ 100 steps | @ 200 steps | @ 500 steps |\n")
         report.append("|------------|-------|------------|-------------|-------------|-------------|\n")
 
         for _, row in regression_df.iterrows():
             short_model = row['model_name'].replace('anthropic-', '').replace('openai-', '').replace('google-', '')
             report.append(f"| `{row['agent_type']}` | `{short_model}` | "
-                        f"{row['predicted_tokens_at_50_steps']:,} | "
-                        f"{row['predicted_tokens_at_100_steps']:,} | "
-                        f"{row['predicted_tokens_at_200_steps']:,} | "
-                        f"{row['predicted_tokens_at_500_steps']:,} |\n")
+                        f"{row['tokens_per_step_at_50']:,} | "
+                        f"{row['tokens_per_step_at_100']:,} | "
+                        f"{row['tokens_per_step_at_200']:,} | "
+                        f"{row['tokens_per_step_at_500']:,} |\n")
+
+        report.append("\n")
+
+        report.append("#### Predicted Total Token Usage at Different Scales\n\n")
+        report.append("| Agent Type | Model | @ 50 steps | @ 100 steps | @ 200 steps | @ 500 steps |\n")
+        report.append("|------------|-------|------------|-------------|-------------|-------------|\n")
+
+        for _, row in regression_df.iterrows():
+            short_model = row['model_name'].replace('anthropic-', '').replace('openai-', '').replace('google-', '')
+            report.append(f"| `{row['agent_type']}` | `{short_model}` | "
+                        f"{row['total_tokens_at_50']:,} | "
+                        f"{row['total_tokens_at_100']:,} | "
+                        f"{row['total_tokens_at_200']:,} | "
+                        f"{row['total_tokens_at_500']:,} |\n")
 
         report.append("\n")
 

@@ -165,34 +165,48 @@ This scatter plot shows the relationship between tokens per step and latency per
 
 ![Token Growth Regression](token_growth_regression.png)
 
-Linear regression analysis showing how token usage scales with the number of steps. The regression lines (dashed) show the trend, while dotted lines extrapolate beyond observed data.
+Linear regression showing how **tokens per step** changes as total steps increase. This reveals whether agents become more/less efficient with more steps. Regression lines (dashed) show the trend, dotted lines extrapolate beyond observed data.
 
 #### Regression Parameters
 
-| Agent Type | Model | Tokens/Step (Slope) | Base Tokens (Intercept) | R² | Predicted @ 100 steps |
-|------------|-------|---------------------|-------------------------|-----|----------------------|
-| `intent` | `claude-sonnet-4.5` | 12744.6 | -45029 | 0.981 | 1,229,435 |
-| `intent` | `gpt-4.1-mini` | 3684.9 | 24848 | 0.758 | 393,337 |
-| `simple-raw` | `claude-sonnet-4.5` | -1475.8 | 262456 | 0.003 | 114,881 |
-| `simple-raw` | `gpt-4.1-mini` | -813.2 | 274346 | 0.214 | 193,020 |
-| `simple-summarization` | `claude-sonnet-4.5` | 7404.9 | -180184 | 0.997 | 560,304 |
-| `simple-summarization` | `gpt-4.1-mini` | -4669.6 | 422003 | 0.719 | -44,961 |
+| Agent Type | Model | Change Rate (Slope) | Base tokens/step | R² | tokens/step @ 100 steps |
+|------------|-------|---------------------|------------------|-----|------------------------|
+| `intent` | `claude-sonnet-4.5` | +125.3 | 7928 | 0.549 | 20,461 |
+| `intent` | `gpt-4.1-mini` | -128.9 | 7402 | 0.539 | -5,483 |
+| `simple-raw` | `claude-sonnet-4.5` | -156.0 | 11376 | 0.071 | -4,226 |
+| `simple-raw` | `gpt-4.1-mini` | -37.4 | 5649 | 0.740 | 1,909 |
+| `simple-summarization` | `claude-sonnet-4.5` | +81.9 | -294 | 0.991 | 7,896 |
+| `simple-summarization` | `gpt-4.1-mini` | -114.3 | 9284 | 0.815 | -2,146 |
 
 **Interpretation:**
-- **Tokens/Step (Slope)**: Additional tokens consumed per additional step
-- **Base Tokens (Intercept)**: Fixed overhead tokens
+- **Change Rate (Slope)**: How tokens/step changes with each additional step
+  - Positive = getting less efficient (more tokens per step as steps increase)
+  - Negative = getting more efficient (fewer tokens per step as steps increase)
+  - Near zero = consistent tokens/step regardless of total steps
+- **Base tokens/step (Intercept)**: Expected tokens/step at step 0
 - **R²**: How well the linear model fits (1.0 = perfect fit)
 
-#### Extrapolated Token Predictions
+#### Predicted Tokens per Step at Different Scales
 
 | Agent Type | Model | @ 50 steps | @ 100 steps | @ 200 steps | @ 500 steps |
 |------------|-------|------------|-------------|-------------|-------------|
-| `intent` | `claude-sonnet-4.5` | 592,203 | 1,229,435 | 2,503,900 | 6,327,294 |
-| `intent` | `gpt-4.1-mini` | 209,092 | 393,337 | 761,826 | 1,867,295 |
-| `simple-raw` | `claude-sonnet-4.5` | 188,668 | 114,881 | -32,693 | -475,418 |
-| `simple-raw` | `gpt-4.1-mini` | 233,683 | 193,020 | 111,695 | -132,278 |
-| `simple-summarization` | `claude-sonnet-4.5` | 190,060 | 560,304 | 1,300,793 | 3,522,260 |
-| `simple-summarization` | `gpt-4.1-mini` | 188,520 | -44,961 | -511,926 | -1,912,818 |
+| `intent` | `claude-sonnet-4.5` | 14,194 | 20,461 | 32,995 | 70,596 |
+| `intent` | `gpt-4.1-mini` | 958 | -5,483 | -18,368 | -57,024 |
+| `simple-raw` | `claude-sonnet-4.5` | 3,574 | -4,226 | -19,829 | -66,636 |
+| `simple-raw` | `gpt-4.1-mini` | 3,779 | 1,909 | -1,830 | -13,050 |
+| `simple-summarization` | `claude-sonnet-4.5` | 3,801 | 7,896 | 16,086 | 40,657 |
+| `simple-summarization` | `gpt-4.1-mini` | 3,568 | -2,146 | -13,577 | -47,869 |
+
+#### Predicted Total Token Usage at Different Scales
+
+| Agent Type | Model | @ 50 steps | @ 100 steps | @ 200 steps | @ 500 steps |
+|------------|-------|------------|-------------|-------------|-------------|
+| `intent` | `claude-sonnet-4.5` | 709,733 | 2,046,158 | 6,599,081 | 35,298,434 |
+| `intent` | `gpt-4.1-mini` | 47,947 | -548,364 | -3,673,765 | -28,512,183 |
+| `simple-raw` | `claude-sonnet-4.5` | 178,714 | -422,695 | -3,965,891 | -33,318,479 |
+| `simple-raw` | `gpt-4.1-mini` | 188,954 | 190,915 | -366,141 | -6,525,156 |
+| `simple-summarization` | `claude-sonnet-4.5` | 190,060 | 789,630 | 3,217,297 | 20,328,523 |
+| `simple-summarization` | `gpt-4.1-mini` | 178,437 | -214,658 | -2,715,452 | -23,934,654 |
 
 ### Accuracy Score
 
@@ -373,4 +387,4 @@ The data suggests different agents excel in different areas. Choose based on you
 
 ---
 
-*Report generated on 2025-11-07 09:18:21*
+*Report generated on 2025-11-07 10:17:14*
