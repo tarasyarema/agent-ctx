@@ -1,5 +1,4 @@
 from typing import Any
-from langchain.tools import BaseTool
 from pydantic import BaseModel
 
 
@@ -34,25 +33,21 @@ def format_step_xml(step, step_index: int, show_full_output: bool = False) -> st
     xml_lines = [f'<task_{step_index} status="{status}">']
 
     if len(step.intents) > 0:
-        xml_lines.append("Intents:")
-        for intent in step.intents:
+        xml_lines.append(f"<intents count='{len(step.intents)}'>")
+
+        for i_ix, intent in enumerate(step.intents):
             intent_status = f"[{intent.status}]" if intent.status != "completed" else ""
 
-            xml_lines.append(f"  - {intent_status} {intent.type}")
+            xml_lines.append(f"<intent_{i_ix + 1}>")
+            xml_lines.append(f"{intent_status} {intent.type}")
 
-            xml_lines.append(f"    Reasoning: {intent.reasoning}")
-            xml_lines.append(f"    Prev step analysis: {intent.previous_step_analysis}")
-            xml_lines.append(f"    Memory: {intent.memory}")
-            xml_lines.append(f"    Next task: {intent.next_task}")
+            xml_lines.append(f"Reasoning: {intent.reasoning}")
+            xml_lines.append(f"Prev step analysis: {intent.previous_step_analysis}")
 
+            xml_lines.append(f"Memory: {intent.memory}")
+            xml_lines.append(f"Next task: {intent.next_task}")
 
-            # Show args compactly
-            # if intent.args and hasattr(intent.args, 'model_dump'):
-            #     args_dict = intent.args.model_dump()
-            #     # Filter out None/empty values for cleaner display
-            #     args_dict = {k: v for k, v in args_dict.items() if v is not None and v != ""}
-            #     if args_dict:
-            xml_lines.append(f"    intent_args: {truncate(intent.args)}")
+            xml_lines.append(f"<intent_args>\n{truncate(intent.args)}\n</intent_args>")
 
             # Show output (truncated or full)
             if intent.output is not None:
@@ -65,26 +60,35 @@ def format_step_xml(step, step_index: int, show_full_output: bool = False) -> st
                 # Indent output lines
                 output_lines = output_str.split('\n')
 
+                xml_lines.append("<output>")
+
                 for line in output_lines:
-                    xml_lines.append(f"    {line}")
+                    xml_lines.append(line)
+
+                if len(output_lines) == 0:
+                    xml_lines.append("<empty output>")
+
+                xml_lines.append("</output>")
 
             # Show error if present
             if intent.error_message:
-                xml_lines.append(f"    Error: {intent.error_message}")
+                xml_lines.append(f"Error: {intent.error_message}")
+
+            xml_lines.append(f'</intent_{i_ix + 1}>')
+
+        xml_lines.append("</intents>")
 
     else:
-        xml_lines.append("No intents executed")
+        xml_lines.append("No intents executed in this step.")
 
     xml_lines.append(f'</task_{step_index}>')
 
     return '\n'.join(xml_lines)
 
 
-def format_history_xml(agent) -> str:
+def format_history_xml(agent, trucate_after: int = 20, keep_start: int = 5, keep_end: int = 10) -> str:
     """
     Format agent history as XML with compression.
-    - If ≤20 steps: show all (truncated outputs except most recent)
-    - If >20 steps: first 5 + collapsed indicator + last 10
     """
     if len(agent.steps) == 0:
         return "No steps completed yet."
@@ -92,23 +96,23 @@ def format_history_xml(agent) -> str:
     total_steps = len(agent.steps)
     xml_parts = []
 
-    if total_steps <= 20:
+    if total_steps <= trucate_after:
         # Show all steps
         for i, step in enumerate(agent.steps, start=1):
             is_most_recent = (i == total_steps)
             xml_parts.append(format_step_xml(step, i, show_full_output=False))
+
     else:
-        # Compression: first 5 + last 10
-        # First 5
-        for i in range(5):
+        for i in range(keep_start):
             xml_parts.append(format_step_xml(agent.steps[i], i + 1, show_full_output=False))
 
         # Collapsed indicator
-        collapsed_count = total_steps - 15
-        xml_parts.append(f'<task_collapsed>Steps 6-{5 + collapsed_count} hidden (use ClarificationIntent to view)</task_collapsed>')
+        collapsed_count = total_steps - (keep_start + keep_end)
+
+        xml_parts.append(f'<task_collapsed>Steps {keep_start + 1} to {total_steps - keep_end} collapsed ({collapsed_count} steps)</task_collapsed>')
 
         # Last 10
-        for i in range(total_steps - 10, total_steps):
+        for i in range(total_steps - keep_end, total_steps):
             step_index = i + 1
             is_most_recent = (step_index == total_steps)
             xml_parts.append(format_step_xml(agent.steps[i], step_index, show_full_output=is_most_recent))
@@ -116,60 +120,20 @@ def format_history_xml(agent) -> str:
     return '\n\n'.join(xml_parts)
 
 
-def get_recent_errors(agent, look_back: int = 3) -> str:
-    """Extract failed intents from recent steps for error context."""
-    if len(agent.steps) == 0:
-        return ""
-
-    recent_steps = agent.steps[-look_back:]
-    errors = []
-
-    for i, step in enumerate(recent_steps):
-        step_index = len(agent.steps) - look_back + i + 1
-        for intent in step.intents:
-            if intent.status == "failed" and intent.error_message:
-                errors.append(f"Step {step_index} - {intent.type}: {intent.error_message}")
-
-    if not errors:
-        return ""
-
-    return "\n".join(errors)
-
-
 def build_dynamic_system_prompt(agent, tools: list[type[BaseModel]], user_prompt: str) -> str:
     """Build complete dynamic system prompt with current agent state."""
-
     # Format history
-    history_xml = format_history_xml(agent)
+    history_xml = format_history_xml(
+        agent,
+        trucate_after=15,
+        keep_start=5,
+        keep_end=3
+    )
 
-    # Get recent errors
-    recent_errors = get_recent_errors(agent)
-    recent_errors_section = ""
-    if recent_errors:
-        recent_errors_section = f"""
-<recent_errors>
-{recent_errors}
+    tools_list_str = ""
 
-Learn from these errors and adjust your approach accordingly. Do not repeat the same mistakes.
-</recent_errors>
-"""
-
-    # Format tool descriptions (minimal)
-    tool_descriptions = []
-
-    for tool in tools:
-        # Get input schema fields
-        # params = []
-        #
-        # for field_name, model_field in tool.model_fields.items():
-        #     field_type = model_field.annotation.__name__ if model_field.annotation else str(model_field.annotation)
-        #     params.append(f"{field_name}: {field_type}")
-        #
-        # params_str = ", ".join(params)
-
-        tool_descriptions.append(f"- **{tool.__name__}**: {tool.__doc__}")
-
-    tools_section = "\n".join(tool_descriptions)
+    for t in tools:
+        tools_list_str += f"<{t.__name__}>\n{t.__doc__ or 'No description available.'}\n</{t.__name__}>\n"
 
     # Build complete prompt
     prompt = f"""<role>
@@ -181,21 +145,20 @@ All actions recorded as structured intents for tracking and debugging.
 <history>
 {history_xml}
 </history>
-{recent_errors_section}
 
 <goal>
 {user_prompt}
 </goal>
 
-<intents>
-Check <core_principles> and <history> before choosing intents.
+<available_intents>
+Use the following intents to perform actions:
 
-{tools_section}
-</intents>
+{tools_list_str}
+</available_intents>
 
 <core_principles>
 **Decision Making**:
-- Analyze <history> and <goal> before acting
+- Analyze <history> and <goal> before acting (choose intents based on evidence)
 - Explicitly judge success/failure from outputs, not assumptions
 - NEVER repeat failed intents without changing approach
 - Learn from <recent_errors> and adjust strategy

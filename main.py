@@ -41,10 +41,17 @@ async def copy_outcome_to_final(final_path: str, metrics_path: str):
         await f.write(dumps(final, indent=2))
 
 async def main():
+    # Ok
     # model_name = "anthropic/claude-sonnet-4.5"
+
+    # Ok
+    # model_name = "openai/gpt-4.1"
     model_name = "openai/gpt-4.1-mini"
-    # model_name = "openai/gpt-4o"
-    # model_name = "google/gemini-2.5-flash-preview-09-2025"
+
+    # Shit and expects a lot from user
+    # model_name = "openai/gpt-5"
+
+    # Ok
     # model_name = "google/gemini-2.5-pro"
 
     # user_prompt = "Just the total rides in januray"

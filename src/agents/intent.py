@@ -22,11 +22,25 @@ class NoOpArgs(BaseModel):
     pass
 
 class BaseIntent(BaseModel):
-    reasoning: str
-    previous_step_analysis: str
+    reasoning: str = Field(
+        ...,
+        description="The reasoning behind choosing this intent.",
+    )
 
-    next_task: str | None = None
-    memory: str | None = None
+    previous_step_analysis: str = Field(
+        ...,
+        description="Brief and concise analysis of the previous step's outcome.",
+    )
+
+    next_task: str | None = Field(
+        None,
+        description="Single sentence description of the next task to be performed based on this intent, if applicable.",
+    )
+
+    memory: str | None = Field(
+        None,
+        description="Relevant memory or context to preserve for future steps. Use carefully to avoid exceeding token limits.",
+    )
 
 
 class StepIntent(BaseIntent):

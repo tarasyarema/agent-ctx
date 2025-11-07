@@ -14,4 +14,5 @@ def new_llm(model_name: str):
         timeout=60,
         temperature=0.0,
         max_retries=3,
+        reasoning_effort="minimal",
     )

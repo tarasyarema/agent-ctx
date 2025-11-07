@@ -258,7 +258,8 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
     agent_types = sorted(df['agent_type'].unique())
     models = sorted(df['model_name'].unique())
     x = np.arange(len(agent_types))
-    width = 0.35
+    width = 0.25  # Thinner bars
+    spacing = 0.12  # Spacing between bars (creates overlap)
 
     fig, ax = plt.subplots(figsize=(14, 7))
 
@@ -268,9 +269,9 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
                 if len(model_data[model_data['agent_type'] == agent]) > 0 else 0
                 for agent in agent_types]
 
-        offset = width * (i - len(models)/2 + 0.5)
+        offset = spacing * (i - len(models)/2 + 0.5)
         bars = ax.bar(x + offset, rates, width, label=model.replace('anthropic-', '').replace('openai-', ''),
-                     color=model_colors.get(model, 'steelblue'))
+                     color=model_colors.get(model, 'steelblue'), alpha=0.85)
 
         # Add value labels
         for j, (bar, rate) in enumerate(zip(bars, rates)):
@@ -304,9 +305,9 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
                     if len(model_data[model_data['agent_type'] == agent]) > 0 else 0
                     for agent in agent_types]
 
-            offset = width * (i - len(models)/2 + 0.5)
+            offset = spacing * (i - len(models)/2 + 0.5)
             bars = ax.bar(x + offset, costs, width, label=model.replace('anthropic-', '').replace('openai-', ''),
-                         color=model_colors.get(model, 'coral'))
+                         color=model_colors.get(model, 'coral'), alpha=0.85)
 
             # Add value labels
             for bar, cost in zip(bars, costs):
@@ -336,9 +337,9 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
                 if len(model_data[model_data['agent_type'] == agent]) > 0 else 0
                 for agent in agent_types]
 
-        offset = width * (i - len(models)/2 + 0.5)
+        offset = spacing * (i - len(models)/2 + 0.5)
         bars = ax.bar(x + offset, steps, width, label=model.replace('anthropic-', '').replace('openai-', ''),
-                     color=model_colors.get(model, 'seagreen'))
+                     color=model_colors.get(model, 'seagreen'), alpha=0.85)
 
         # Add value labels
         for bar, step in zip(bars, steps):
@@ -365,7 +366,7 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
         model_df = df[df['model_name'] == model]
         token_data = model_df.groupby('agent_type')[['input_tokens', 'output_tokens']].mean()
 
-        offset = width * (i - len(models)/2 + 0.5)
+        offset = spacing * (i - len(models)/2 + 0.5)
 
         # Plot stacked bars for this model
         bottom = np.zeros(len(agent_types))
@@ -375,7 +376,7 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
 
             color_base = model_colors.get(model, 'steelblue')
             # Make output tokens slightly lighter
-            alpha_val = 0.5 if token_type == 'output_tokens' else 1.0
+            alpha_val = 0.5 if token_type == 'output_tokens' else 0.85
 
             ax.bar(x + offset, values, width, bottom=bottom,
                   label=f'{model.replace("anthropic-", "").replace("openai-", "")} - {token_type.replace("_", " ").title()}',
@@ -404,9 +405,9 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
                 if len(model_data[model_data['agent_type'] == agent]) > 0 else 0
                 for agent in agent_types]
 
-        offset = width * (i - len(models)/2 + 0.5)
+        offset = spacing * (i - len(models)/2 + 0.5)
         bars = ax.bar(x + offset, times, width, label=model.replace('anthropic-', '').replace('openai-', ''),
-                     color=model_colors.get(model, 'mediumpurple'))
+                     color=model_colors.get(model, 'mediumpurple'), alpha=0.85)
 
         # Add value labels
         for bar, time in zip(bars, times):
@@ -469,9 +470,9 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
                     if len(model_data[model_data['agent_type'] == agent]) > 0 else 0
                     for agent in agent_types]
 
-        offset = width * (i - len(models)/2 + 0.5)
+        offset = spacing * (i - len(models)/2 + 0.5)
         bars = ax.bar(x + offset, latencies, width, label=model.replace('anthropic-', '').replace('openai-', ''),
-                     color=model_colors.get(model, 'orange'))
+                     color=model_colors.get(model, 'orange'), alpha=0.85)
 
         # Add value labels
         for bar, lat in zip(bars, latencies):
@@ -503,9 +504,9 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
                       if len(model_data[model_data['agent_type'] == agent]) > 0 else 0
                       for agent in agent_types]
 
-        offset = width * (i - len(models)/2 + 0.5)
+        offset = spacing * (i - len(models)/2 + 0.5)
         bars = ax.bar(x + offset, throughputs, width, label=model.replace('anthropic-', '').replace('openai-', ''),
-                     color=model_colors.get(model, 'teal'))
+                     color=model_colors.get(model, 'teal'), alpha=0.85)
 
         # Add value labels
         for bar, thr in zip(bars, throughputs):
@@ -561,9 +562,9 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
                      if len(model_data[model_data['agent_type'] == agent]) > 0 else 0
                      for agent in agent_types]
 
-            offset = width * (i - len(models)/2 + 0.5)
+            offset = spacing * (i - len(models)/2 + 0.5)
             bars = ax.bar(x + offset, scores, width, label=model.replace('anthropic-', '').replace('openai-', ''),
-                         color=model_colors.get(model, 'green'))
+                         color=model_colors.get(model, 'green'), alpha=0.85)
 
             # Add value labels
             for bar, score in zip(bars, scores):
