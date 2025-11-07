@@ -16,6 +16,7 @@ dependencies = [
     "pandas>=2.3.3",
     "pydantic>=2.12.4",
     "python-dotenv>=1.2.1",
+    "scipy>=1.16.3",
     "seaborn>=0.13.2",
     "sqlglot[rs]>=27.29.0",
 ]

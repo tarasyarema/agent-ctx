@@ -41,8 +41,8 @@ async def copy_outcome_to_final(final_path: str, metrics_path: str):
         await f.write(dumps(final, indent=2))
 
 async def main():
-    model_name = "anthropic/claude-sonnet-4.5"
-    # model_name = "openai/gpt-4.1-mini"
+    # model_name = "anthropic/claude-sonnet-4.5"
+    model_name = "openai/gpt-4.1-mini"
     # model_name = "openai/gpt-4o"
     # model_name = "google/gemini-2.5-flash-preview-09-2025"
     # model_name = "google/gemini-2.5-pro"

@@ -10,12 +10,13 @@ Analyzes agent outputs from the outputs/ directory and generates:
 import os
 import json
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple
 from dataclasses import dataclass, asdict
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+from scipy import stats
 
 # Source of truth for accuracy comparison
 GROUND_TRUTH = {
@@ -669,6 +670,99 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
             plt.savefig(f"{output_dir}/field_percentage_error.png", dpi=300)
             plt.close()
 
+    # 11. Token Growth Regression Analysis
+    # Calculate regression for each agent_type and model combination
+    regression_data = []
+
+    fig, axes = plt.subplots(len(agent_types), len(models), figsize=(18, 5 * len(agent_types)), squeeze=False)
+
+    for row_idx, agent_type in enumerate(agent_types):
+        for col_idx, model in enumerate(models):
+            ax = axes[row_idx, col_idx]
+            agent_model_data = df[(df['agent_type'] == agent_type) & (df['model_name'] == model)]
+
+            if not agent_model_data.empty and len(agent_model_data) >= 2:
+                steps = agent_model_data['total_messages'].values
+                tokens = agent_model_data['total_tokens'].values
+
+                # Calculate linear regression
+                slope, intercept, r_value, p_value, std_err = stats.linregress(steps, tokens)
+                r_squared = r_value ** 2
+
+                # Store regression data (only if not NaN)
+                if not np.isnan(slope):
+                    regression_data.append({
+                        'agent_type': agent_type,
+                        'model_name': model,
+                        'slope': slope,
+                        'intercept': intercept,
+                        'r_squared': r_squared,
+                        'std_error': std_err
+                    })
+
+                # Plot scatter points
+                color = agent_colors.get(agent_type, 'steelblue')
+                ax.scatter(steps, tokens, color=color, alpha=0.7, s=100,
+                          edgecolors='black', linewidths=1)
+
+                # Plot regression line
+                x_line = np.array([steps.min(), steps.max()])
+                y_line = slope * x_line + intercept
+                ax.plot(x_line, y_line, 'r--', linewidth=2, label=f'y = {slope:.1f}x + {intercept:.0f}')
+
+                # Add extrapolation
+                x_extrap = np.array([steps.min(), max(steps.max(), 100)])
+                y_extrap = slope * x_extrap + intercept
+                ax.plot(x_extrap, y_extrap, 'r:', linewidth=1.5, alpha=0.5, label='Extrapolation')
+
+                # Styling
+                model_short = model.replace('anthropic-', '').replace('openai-', '').replace('google-', '')
+                ax.set_title(f'{agent_type} ({model_short})\nR² = {r_squared:.3f}',
+                           fontsize=11, fontweight='bold')
+                ax.set_xlabel('Steps', fontsize=10)
+                ax.set_ylabel('Total Tokens', fontsize=10)
+                ax.legend(fontsize=9)
+                ax.grid(True, alpha=0.3)
+            elif not agent_model_data.empty and len(agent_model_data) == 1:
+                # Plot single data point
+                steps = agent_model_data['total_messages'].values
+                tokens = agent_model_data['total_tokens'].values
+                color = agent_colors.get(agent_type, 'steelblue')
+                ax.scatter(steps, tokens, color=color, alpha=0.7, s=100,
+                          edgecolors='black', linewidths=1)
+                model_short = model.replace('anthropic-', '').replace('openai-', '').replace('google-', '')
+                ax.set_title(f'{agent_type} ({model_short})\nInsufficient data for regression',
+                           fontsize=11, fontweight='bold')
+                ax.set_xlabel('Steps', fontsize=10)
+                ax.set_ylabel('Total Tokens', fontsize=10)
+                ax.grid(True, alpha=0.3)
+            else:
+                model_short = model.replace('anthropic-', '').replace('openai-', '').replace('google-', '')
+                ax.text(0.5, 0.5, f'No data\n{agent_type} ({model_short})', ha='center', va='center',
+                       transform=ax.transAxes, fontsize=10)
+                ax.set_xticks([])
+                ax.set_yticks([])
+
+    plt.suptitle('Token Growth vs Steps with Linear Regression',
+                fontsize=16, fontweight='bold', y=0.995)
+    plt.tight_layout()
+    plt.savefig(f"{output_dir}/token_growth_regression.png", dpi=300, bbox_inches='tight')
+    plt.close()
+
+    # Create regression summary CSV
+    if regression_data:
+        regression_df = pd.DataFrame(regression_data)
+
+        # Add predictions at different step counts
+        prediction_steps = [50, 100, 200, 500]
+        for step_count in prediction_steps:
+            regression_df[f'predicted_tokens_at_{step_count}_steps'] = (
+                regression_df['slope'] * step_count + regression_df['intercept']
+            ).astype(int)
+
+        regression_df.to_csv(f"{output_dir}/token_growth_regression.csv", index=False)
+        print(f"Exported: {output_dir}/token_growth_regression.csv")
+
     print(f"\nVisualizations saved to {output_dir}/")
 
 
@@ -907,6 +1001,46 @@ def generate_summary_report(runs: List[AgentRun], output_dir: str = "analysis_ou
     report.append("![Latency vs Tokens](latency_vs_tokens.png)\n\n")
     report.append("This scatter plot shows the relationship between tokens per step and latency per step, "
                  "helping identify efficiency patterns across different agent configurations.\n\n")
+
+    # Token Growth Regression Analysis
+    report.append("### Token Growth Scaling Analysis\n\n")
+    report.append("![Token Growth Regression](token_growth_regression.png)\n\n")
+    report.append("Linear regression analysis showing how token usage scales with the number of steps. "
+                 "The regression lines (dashed) show the trend, while dotted lines extrapolate beyond observed data.\n\n")
+
+    # Load regression data if it exists
+    regression_csv = f"{output_dir}/token_growth_regression.csv"
+    if os.path.exists(regression_csv):
+        regression_df = pd.read_csv(regression_csv)
+
+        report.append("#### Regression Parameters\n\n")
+        report.append("| Agent Type | Model | Tokens/Step (Slope) | Base Tokens (Intercept) | R² | Predicted @ 100 steps |\n")
+        report.append("|------------|-------|---------------------|-------------------------|-----|----------------------|\n")
+
+        for _, row in regression_df.iterrows():
+            short_model = row['model_name'].replace('anthropic-', '').replace('openai-', '').replace('google-', '')
+            report.append(f"| `{row['agent_type']}` | `{short_model}` | {row['slope']:.1f} | "
+                        f"{row['intercept']:.0f} | {row['r_squared']:.3f} | "
+                        f"{row['predicted_tokens_at_100_steps']:,} |\n")
+
+        report.append("\n**Interpretation:**\n")
+        report.append("- **Tokens/Step (Slope)**: Additional tokens consumed per additional step\n")
+        report.append("- **Base Tokens (Intercept)**: Fixed overhead tokens\n")
+        report.append("- **R²**: How well the linear model fits (1.0 = perfect fit)\n\n")
+
+        report.append("#### Extrapolated Token Predictions\n\n")
+        report.append("| Agent Type | Model | @ 50 steps | @ 100 steps | @ 200 steps | @ 500 steps |\n")
+        report.append("|------------|-------|------------|-------------|-------------|-------------|\n")
+
+        for _, row in regression_df.iterrows():
+            short_model = row['model_name'].replace('anthropic-', '').replace('openai-', '').replace('google-', '')
+            report.append(f"| `{row['agent_type']}` | `{short_model}` | "
+                        f"{row['predicted_tokens_at_50_steps']:,} | "
+                        f"{row['predicted_tokens_at_100_steps']:,} | "
+                        f"{row['predicted_tokens_at_200_steps']:,} | "
+                        f"{row['predicted_tokens_at_500_steps']:,} |\n")
+
+        report.append("\n")
 
     if not successful_runs.empty and successful_runs['accuracy_score'].sum() > 0:
         report.append("### Accuracy Score\n\n")
