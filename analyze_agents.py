@@ -681,23 +681,47 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
             ax = axes[row_idx, col_idx]
             agent_model_data = df[(df['agent_type'] == agent_type) & (df['model_name'] == model)]
 
-            if not agent_model_data.empty and len(agent_model_data) >= 2:
+            if not agent_model_data.empty and len(agent_model_data) >= 3:  # Need at least 3 points for polynomial
                 steps = agent_model_data['total_messages'].values
                 tokens_per_step = agent_model_data['avg_tokens_per_step'].values
 
-                # Calculate linear regression
-                slope, intercept, r_value, p_value, std_err = stats.linregress(steps, tokens_per_step)
-                r_squared = r_value ** 2
+                # Try polynomial fits of degree 2 and 3, select best based on R²
+                best_degree = 1
+                best_r_squared = 0
+                best_coeffs = None
 
-                # Store regression data (only if not NaN)
-                if not np.isnan(slope):
+                for degree in [2, 3]:
+                    try:
+                        coeffs = np.polyfit(steps, tokens_per_step, degree)
+                        poly_pred = np.polyval(coeffs, steps)
+
+                        # Calculate R²
+                        ss_res = np.sum((tokens_per_step - poly_pred) ** 2)
+                        ss_tot = np.sum((tokens_per_step - np.mean(tokens_per_step)) ** 2)
+                        r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+
+                        if r_squared > best_r_squared:
+                            best_r_squared = r_squared
+                            best_degree = degree
+                            best_coeffs = coeffs
+                    except:
+                        continue
+
+                # If polynomial didn't work, fall back to linear
+                if best_coeffs is None:
+                    slope, intercept, r_value, _, _ = stats.linregress(steps, tokens_per_step)
+                    best_coeffs = [slope, intercept]
+                    best_degree = 1
+                    best_r_squared = r_value ** 2
+
+                # Store regression data
+                if not np.isnan(best_r_squared):
                     regression_data.append({
                         'agent_type': agent_type,
                         'model_name': model,
-                        'slope': slope,
-                        'intercept': intercept,
-                        'r_squared': r_squared,
-                        'std_error': std_err
+                        'degree': best_degree,
+                        'coefficients': best_coeffs,
+                        'r_squared': best_r_squared
                     })
 
                 # Plot scatter points
@@ -705,23 +729,38 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
                 ax.scatter(steps, tokens_per_step, color=color, alpha=0.7, s=100,
                           edgecolors='black', linewidths=1)
 
-                # Plot regression line
-                x_line = np.array([steps.min(), steps.max()])
-                y_line = slope * x_line + intercept
-                ax.plot(x_line, y_line, 'r--', linewidth=2, label=f'y = {slope:.1f}x + {intercept:.0f}')
+                # Plot regression curve
+                x_line = np.linspace(steps.min(), steps.max(), 100)
+                y_line = np.polyval(best_coeffs, x_line)
+
+                # Determine efficiency pattern for color coding
+                if best_degree >= 2:
+                    # Check second derivative at midpoint to determine curvature
+                    mid_x = (steps.min() + steps.max()) / 2
+                    derivative = np.polyder(best_coeffs)
+                    slope_at_mid = np.polyval(derivative, mid_x)
+                    curve_color = 'green' if slope_at_mid < 0 else 'red' if slope_at_mid > 0 else 'blue'
+                else:
+                    curve_color = 'green' if best_coeffs[0] < 0 else 'red' if best_coeffs[0] > 0 else 'blue'
+
+                ax.plot(x_line, y_line, '--', linewidth=2, color=curve_color,
+                       label=f'Poly({best_degree})')
 
                 # Add extrapolation
-                x_extrap = np.array([steps.min(), max(steps.max(), 100)])
-                y_extrap = slope * x_extrap + intercept
-                ax.plot(x_extrap, y_extrap, 'r:', linewidth=1.5, alpha=0.5, label='Extrapolation')
+                x_extrap = np.linspace(steps.min(), max(steps.max(), 100), 100)
+                y_extrap = np.polyval(best_coeffs, x_extrap)
+                # Only show positive predictions
+                y_extrap = np.where(y_extrap > 0, y_extrap, np.nan)
+                ax.plot(x_extrap, y_extrap, ':', linewidth=1.5, alpha=0.5, color=curve_color,
+                       label='Extrapolation')
 
                 # Styling
                 model_short = model.replace('anthropic-', '').replace('openai-', '').replace('google-', '')
-                ax.set_title(f'{agent_type} ({model_short})\nR² = {r_squared:.3f}',
+                ax.set_title(f'{agent_type} ({model_short})\nDegree {best_degree}, R² = {best_r_squared:.3f}',
                            fontsize=11, fontweight='bold')
                 ax.set_xlabel('Total Steps', fontsize=10)
                 ax.set_ylabel('Tokens per Step', fontsize=10)
-                ax.legend(fontsize=9)
+                ax.legend(fontsize=8)
                 ax.grid(True, alpha=0.3)
             elif not agent_model_data.empty and len(agent_model_data) == 1:
                 # Plot single data point
@@ -751,17 +790,63 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
 
     # Create regression summary CSV
     if regression_data:
-        regression_df = pd.DataFrame(regression_data)
-
-        # Add predictions at different step counts
+        # Expand coefficients for CSV export
+        regression_records = []
         prediction_steps = [50, 100, 200, 500]
-        for step_count in prediction_steps:
-            # Predicted tokens per step at this step count
-            tokens_per_step_pred = regression_df['slope'] * step_count + regression_df['intercept']
-            regression_df[f'tokens_per_step_at_{step_count}'] = tokens_per_step_pred.astype(int)
-            # Total tokens would be: tokens_per_step * step_count
-            regression_df[f'total_tokens_at_{step_count}'] = (tokens_per_step_pred * step_count).astype(int)
 
+        for data in regression_data:
+            record = {
+                'agent_type': data['agent_type'],
+                'model_name': data['model_name'],
+                'degree': data['degree'],
+                'r_squared': data['r_squared']
+            }
+
+            # Store coefficients (highest degree first)
+            coeffs = data['coefficients']
+            for i, coeff in enumerate(coeffs):
+                record[f'coeff_{len(coeffs)-1-i}'] = coeff
+
+            # Calculate predictions at different step counts
+            for step_count in prediction_steps:
+                # Predicted tokens per step at this step count
+                tokens_per_step_pred = np.polyval(coeffs, step_count)
+                # Constrain to positive values
+                tokens_per_step_pred = max(0, tokens_per_step_pred)
+
+                record[f'tokens_per_step_at_{step_count}'] = int(tokens_per_step_pred)
+                # Total tokens would be: tokens_per_step * step_count
+                record[f'total_tokens_at_{step_count}'] = int(tokens_per_step_pred * step_count)
+
+            # Calculate efficiency metrics
+            # Change in tokens/step from 50 to 100 steps
+            tokens_50 = np.polyval(coeffs, 50)
+            tokens_100 = np.polyval(coeffs, 100)
+            tokens_200 = np.polyval(coeffs, 200)
+
+            # Efficiency change percentage
+            if tokens_50 > 0:
+                efficiency_change_50_to_100 = ((tokens_100 - tokens_50) / tokens_50) * 100
+                record['efficiency_change_50_to_100_pct'] = efficiency_change_50_to_100
+            else:
+                record['efficiency_change_50_to_100_pct'] = None
+
+            if tokens_100 > 0:
+                efficiency_change_100_to_200 = ((tokens_200 - tokens_100) / tokens_100) * 100
+                record['efficiency_change_100_to_200_pct'] = efficiency_change_100_to_200
+            else:
+                record['efficiency_change_100_to_200_pct'] = None
+
+            # Overall efficiency rating (lower change = better)
+            if record['efficiency_change_50_to_100_pct'] is not None:
+                # Negative change = improving efficiency (good), positive = degrading (bad)
+                record['efficiency_rating'] = -record['efficiency_change_50_to_100_pct']
+            else:
+                record['efficiency_rating'] = None
+
+            regression_records.append(record)
+
+        regression_df = pd.DataFrame(regression_records)
         regression_df.to_csv(f"{output_dir}/token_growth_regression.csv", index=False)
         print(f"Exported: {output_dir}/token_growth_regression.csv")
 
@@ -1007,33 +1092,85 @@ def generate_summary_report(runs: List[AgentRun], output_dir: str = "analysis_ou
     # Token Growth Regression Analysis
     report.append("### Token Growth Scaling Analysis\n\n")
     report.append("![Token Growth Regression](token_growth_regression.png)\n\n")
-    report.append("Linear regression showing how **tokens per step** changes as total steps increase. "
+    report.append("Polynomial regression (degree 2-3) showing how **tokens per step** changes as total steps increase. "
                  "This reveals whether agents become more/less efficient with more steps. "
-                 "Regression lines (dashed) show the trend, dotted lines extrapolate beyond observed data.\n\n")
+                 "Curves are color-coded: 🟢 **green** = improving efficiency, 🔴 **red** = degrading efficiency, 🔵 **blue** = stable. "
+                 "Solid curves show fitted trend, dotted lines extrapolate beyond observed data (constrained to positive values).\n\n")
 
     # Load regression data if it exists
     regression_csv = f"{output_dir}/token_growth_regression.csv"
     if os.path.exists(regression_csv):
         regression_df = pd.read_csv(regression_csv)
 
-        report.append("#### Regression Parameters\n\n")
-        report.append("| Agent Type | Model | Change Rate (Slope) | Base tokens/step | R² | tokens/step @ 100 steps |\n")
-        report.append("|------------|-------|---------------------|------------------|-----|------------------------|\n")
+        report.append("#### Model Fit Parameters\n\n")
+        report.append("| Agent Type | Model | Degree | R² | Equation |\n")
+        report.append("|------------|-------|--------|-----|----------|\n")
 
         for _, row in regression_df.iterrows():
             short_model = row['model_name'].replace('anthropic-', '').replace('openai-', '').replace('google-', '')
-            slope_sign = "+" if row['slope'] >= 0 else ""
-            report.append(f"| `{row['agent_type']}` | `{short_model}` | {slope_sign}{row['slope']:.1f} | "
-                        f"{row['intercept']:.0f} | {row['r_squared']:.3f} | "
-                        f"{row['tokens_per_step_at_100']:,} |\n")
+            degree = int(row['degree'])
+
+            # Build polynomial equation string
+            equation_parts = []
+            for i in range(degree + 1):
+                coeff_col = f'coeff_{degree - i}'
+                if coeff_col in row and not pd.isna(row[coeff_col]):
+                    coeff = row[coeff_col]
+                    if abs(coeff) < 0.01 and i < degree:  # Skip very small coefficients except constant
+                        continue
+
+                    coeff_str = f"{coeff:.2f}" if abs(coeff) < 100 else f"{coeff:.0f}"
+                    if degree - i == 0:
+                        equation_parts.append(coeff_str)
+                    elif degree - i == 1:
+                        equation_parts.append(f"{coeff_str}x")
+                    else:
+                        equation_parts.append(f"{coeff_str}x^{degree-i}")
+
+            equation = " + ".join(equation_parts).replace("+ -", "- ")
+
+            report.append(f"| `{row['agent_type']}` | `{short_model}` | {degree} | "
+                        f"{row['r_squared']:.3f} | `{equation}` |\n")
 
         report.append("\n**Interpretation:**\n")
-        report.append("- **Change Rate (Slope)**: How tokens/step changes with each additional step\n")
-        report.append("  - Positive = getting less efficient (more tokens per step as steps increase)\n")
-        report.append("  - Negative = getting more efficient (fewer tokens per step as steps increase)\n")
-        report.append("  - Near zero = consistent tokens/step regardless of total steps\n")
-        report.append("- **Base tokens/step (Intercept)**: Expected tokens/step at step 0\n")
-        report.append("- **R²**: How well the linear model fits (1.0 = perfect fit)\n\n")
+        report.append("- **Degree**: Polynomial degree (2 or 3) selected for best fit\n")
+        report.append("- **R²**: Goodness of fit (higher = better, 1.0 = perfect fit)\n")
+        report.append("- **Equation**: Polynomial function describing tokens/step as function of total steps (x)\n\n")
+
+        # Efficiency rankings
+        report.append("#### Efficiency Rankings\n\n")
+        report.append("Ranked by efficiency change from 50 to 100 steps (negative = improving, positive = degrading):\n\n")
+
+        # Filter only reliable fits
+        reliable_df = regression_df[regression_df['r_squared'] >= 0.3].copy()
+
+        if not reliable_df.empty and 'efficiency_change_50_to_100_pct' in reliable_df.columns:
+            # Filter out NaN values
+            valid_df = reliable_df[reliable_df['efficiency_change_50_to_100_pct'].notna()].copy()
+
+            if not valid_df.empty:
+                valid_df = valid_df.sort_values('efficiency_change_50_to_100_pct')
+
+                medals = ['🥇', '🥈', '🥉']
+                for idx, (_, row) in enumerate(valid_df.iterrows()):
+                    short_model = row['model_name'].replace('anthropic-', '').replace('openai-', '').replace('google-', '')
+                    medal = medals[idx] if idx < 3 else f"{idx+1}."
+                    change_pct = row['efficiency_change_50_to_100_pct']
+
+                    if change_pct < 0:
+                        trend = f"🟢 {change_pct:.1f}% (improving)"
+                    elif change_pct > 5:
+                        trend = f"🔴 +{change_pct:.1f}% (degrading)"
+                    else:
+                        trend = f"🔵 +{change_pct:.1f}% (stable)"
+
+                    report.append(f"{medal} **`{row['agent_type']}`** ({short_model}): {trend}  \n")
+
+                report.append("\n")
+            else:
+                report.append("*No valid efficiency data available*\n\n")
+        else:
+            report.append("*Insufficient reliable regression data (R² < 0.3) for efficiency rankings*\n\n")
 
         report.append("#### Predicted Tokens per Step at Different Scales\n\n")
         report.append("| Agent Type | Model | @ 50 steps | @ 100 steps | @ 200 steps | @ 500 steps |\n")
