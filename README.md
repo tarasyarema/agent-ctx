@@ -36,9 +36,11 @@ Creates visualizations, CSVs, and a summary report in `analysis_output/`:
 
 - **Success Rate**: Task completion percentage (empty metrics = failure)
 - **Cost**: API costs per run and per step
-- **Speed**: Total execution time and time per step
+- **Speed**: Total execution time
 - **Step Count**: Number of agent iterations
+- **Per-Step Latency**: Average time per agent step
 - **Token Usage**: Input/output tokens consumed
+- **Throughput**: Tokens processed per second
 - **Accuracy**: Correctness vs. ground truth (5% tolerance for numeric fields)
 - **Proximity Score**: 0-1 score showing how close predictions are to correct values
 

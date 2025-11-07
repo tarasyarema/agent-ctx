@@ -374,14 +374,11 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
 
             color_base = model_colors.get(model, 'steelblue')
             # Make output tokens slightly lighter
-            if token_type == 'output_tokens':
-                color = color_base + '80'  # Add transparency
-            else:
-                color = color_base
+            alpha_val = 0.5 if token_type == 'output_tokens' else 1.0
 
             ax.bar(x + offset, values, width, bottom=bottom,
                   label=f'{model.replace("anthropic-", "").replace("openai-", "")} - {token_type.replace("_", " ").title()}',
-                  color=color)
+                  color=color_base, alpha=alpha_val)
             bottom += values
 
     ax.set_xlabel('Agent Type', fontsize=12)
@@ -461,7 +458,98 @@ def generate_visualizations(runs: List[AgentRun], output_dir: str = "analysis_ou
     plt.savefig(f"{output_dir}/tokens_vs_steps.png", dpi=300)
     plt.close()
 
-    # 7. Accuracy Score (for successful runs)
+    # 7. Per-Step Latency Comparison
+    fig, ax = plt.subplots(figsize=(14, 7))
+    latency_data = df.groupby(['agent_type', 'model_name'])['avg_time_per_step'].mean().reset_index()
+
+    for i, model in enumerate(models):
+        model_data = latency_data[latency_data['model_name'] == model]
+        latencies = [model_data[model_data['agent_type'] == agent]['avg_time_per_step'].values[0]
+                    if len(model_data[model_data['agent_type'] == agent]) > 0 else 0
+                    for agent in agent_types]
+
+        offset = width * (i - len(models)/2 + 0.5)
+        bars = ax.bar(x + offset, latencies, width, label=model.replace('anthropic-', '').replace('openai-', ''),
+                     color=model_colors.get(model, 'orange'))
+
+        # Add value labels
+        for bar, lat in zip(bars, latencies):
+            if lat > 0:
+                ax.text(bar.get_x() + bar.get_width()/2, lat, f'{lat:.2f}s',
+                       ha='center', va='bottom', fontsize=9)
+
+    ax.set_xlabel('Agent Type', fontsize=12)
+    ax.set_ylabel('Average Time per Step (seconds)', fontsize=12)
+    ax.set_title('Per-Step Latency by Agent Type and Model', fontsize=14, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(agent_types, rotation=45, ha='right')
+    ax.legend(title='Model')
+    ax.grid(axis='y', alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig(f"{output_dir}/per_step_latency.png", dpi=300)
+    plt.close()
+
+    # 8. Throughput: Tokens per Second
+    df['tokens_per_second'] = df['total_tokens'] / df['total_time_seconds']
+
+    fig, ax = plt.subplots(figsize=(14, 7))
+    throughput_data = df.groupby(['agent_type', 'model_name'])['tokens_per_second'].mean().reset_index()
+
+    for i, model in enumerate(models):
+        model_data = throughput_data[throughput_data['model_name'] == model]
+        throughputs = [model_data[model_data['agent_type'] == agent]['tokens_per_second'].values[0]
+                      if len(model_data[model_data['agent_type'] == agent]) > 0 else 0
+                      for agent in agent_types]
+
+        offset = width * (i - len(models)/2 + 0.5)
+        bars = ax.bar(x + offset, throughputs, width, label=model.replace('anthropic-', '').replace('openai-', ''),
+                     color=model_colors.get(model, 'teal'))
+
+        # Add value labels
+        for bar, thr in zip(bars, throughputs):
+            if thr > 0:
+                ax.text(bar.get_x() + bar.get_width()/2, thr, f'{thr:.0f}',
+                       ha='center', va='bottom', fontsize=9)
+
+    ax.set_xlabel('Agent Type', fontsize=12)
+    ax.set_ylabel('Tokens per Second', fontsize=12)
+    ax.set_title('Token Processing Throughput by Agent Type and Model', fontsize=14, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(agent_types, rotation=45, ha='right')
+    ax.legend(title='Model')
+    ax.grid(axis='y', alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig(f"{output_dir}/tokens_per_second.png", dpi=300)
+    plt.close()
+
+    # 9. Latency vs Token Usage scatter
+    fig, ax = plt.subplots(figsize=(12, 7))
+
+    for agent_type in agent_types:
+        for model in models:
+            agent_model_data = df[(df['agent_type'] == agent_type) & (df['model_name'] == model)]
+            if not agent_model_data.empty:
+                model_short = model.replace("anthropic-", "").replace("openai-", "")
+                plt.scatter(agent_model_data['avg_tokens_per_step'], agent_model_data['avg_time_per_step'],
+                           label=f'{agent_type} ({model_short})',
+                           alpha=0.7, s=150,
+                           marker=markers.get(model, 'o'),
+                           color=agent_colors.get(agent_type, 'steelblue'),
+                           edgecolors='black', linewidths=1.5)
+
+    plt.title('Per-Step Latency vs Tokens per Step', fontsize=14, fontweight='bold')
+    plt.xlabel('Average Tokens per Step', fontsize=12)
+    plt.ylabel('Average Time per Step (seconds)', fontsize=12)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', frameon=True, shadow=True)
+    plt.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig(f"{output_dir}/latency_vs_tokens.png", dpi=300)
+    plt.close()
+
+    # 10. Accuracy Score (for successful runs)
     if not successful_runs.empty and successful_runs['accuracy_score'].sum() > 0:
         fig, ax = plt.subplots(figsize=(14, 7))
         accuracy_data = successful_runs.groupby(['agent_type', 'model_name'])['accuracy_score'].mean().reset_index()
@@ -590,6 +678,9 @@ def export_csvs(runs: List[AgentRun], output_dir: str = "analysis_output"):
 
     df = pd.DataFrame([asdict(run) for run in runs])
 
+    # Add calculated metrics
+    df['tokens_per_second'] = df['total_tokens'] / df['total_time_seconds']
+
     # 1. Detailed metrics CSV
     df.to_csv(f"{output_dir}/detailed_metrics.csv", index=False)
     print(f"Exported: {output_dir}/detailed_metrics.csv")
@@ -603,6 +694,7 @@ def export_csvs(runs: List[AgentRun], output_dir: str = "analysis_output"):
         'avg_tokens_per_step': ['mean', 'std'],
         'avg_time_per_step': ['mean', 'std'],
         'cost_per_step': ['mean', 'std'],
+        'tokens_per_second': ['mean', 'std'],
         'is_success': ['sum', 'count'],
         'accuracy_score': ['mean', 'std']
     }).round(4)
@@ -784,6 +876,37 @@ def generate_summary_report(runs: List[AgentRun], output_dir: str = "analysis_ou
 
     report.append("### Tokens vs Steps Relationship\n\n")
     report.append("![Tokens vs Steps](tokens_vs_steps.png)\n\n")
+
+    # Per-step latency
+    report.append("### Per-Step Latency\n\n")
+    report.append("![Per-Step Latency](per_step_latency.png)\n\n")
+
+    latency_data = df.groupby(['agent_type', 'model_name'])['avg_time_per_step'].agg(['mean', 'std'])
+    report.append("| Agent Type | Model | Avg Latency per Step | Std Dev |\n")
+    report.append("|------------|-------|----------------------|----------|\n")
+    for (agent, model) in latency_data.index:
+        short_model = model.replace('anthropic-', '').replace('openai-', '')
+        report.append(f"| `{agent}` | `{short_model}` | {latency_data.loc[(agent, model), 'mean']:.2f}s | ±{latency_data.loc[(agent, model), 'std']:.2f}s |\n")
+    report.append("\n")
+
+    # Tokens per second (throughput)
+    df['tokens_per_second'] = df['total_tokens'] / df['total_time_seconds']
+    report.append("### Token Processing Throughput\n\n")
+    report.append("![Tokens per Second](tokens_per_second.png)\n\n")
+
+    throughput_data = df.groupby(['agent_type', 'model_name'])['tokens_per_second'].agg(['mean', 'std'])
+    report.append("| Agent Type | Model | Tokens/Second | Std Dev |\n")
+    report.append("|------------|-------|---------------|----------|\n")
+    for (agent, model) in throughput_data.index:
+        short_model = model.replace('anthropic-', '').replace('openai-', '')
+        report.append(f"| `{agent}` | `{short_model}` | {throughput_data.loc[(agent, model), 'mean']:.0f} | ±{throughput_data.loc[(agent, model), 'std']:.0f} |\n")
+    report.append("\n")
+
+    # Latency vs Tokens relationship
+    report.append("### Latency vs Token Usage\n\n")
+    report.append("![Latency vs Tokens](latency_vs_tokens.png)\n\n")
+    report.append("This scatter plot shows the relationship between tokens per step and latency per step, "
+                 "helping identify efficiency patterns across different agent configurations.\n\n")
 
     if not successful_runs.empty and successful_runs['accuracy_score'].sum() > 0:
         report.append("### Accuracy Score\n\n")

@@ -114,7 +114,8 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
+    asyncio.run(main())
 
-    for i in range(3):
-        RUN_ID = datetime.now().strftime("%Y%m%dT%H%M%S")
-        asyncio.run(main())
+    # for i in range(3):
+    #     RUN_ID = datetime.now().strftime("%Y%m%dT%H%M%S")
+    #     asyncio.run(main())
